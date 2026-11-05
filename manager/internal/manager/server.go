@@ -848,12 +848,12 @@ func (s *Server) configEditorView() ConfigEditorView {
 	}
 	for index := range editor.Fields {
 		field := &editor.Fields[index]
-		if field.Name != "TautulliUrl" {
+		if field.Name != "SiloUrl" {
 			continue
 		}
-		field.Value = "http://host.docker.internal:8181"
-		field.Placeholder = "http://host.docker.internal:8181"
-		field.Help = "For Tautulli running on this Mac, use host.docker.internal. Another server must use an address reachable from Docker Desktop. Verification runs after a successful save."
+		field.Value = "http://host.docker.internal:8080"
+		field.Placeholder = "http://host.docker.internal:8080"
+		field.Help = "For Silo running on this Mac, use host.docker.internal. Another server must use an address reachable from Docker Desktop. Verification runs after a successful save."
 		break
 	}
 	return editor

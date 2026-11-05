@@ -382,7 +382,7 @@ func TestDiagnosticsAPIRequiresAuthenticationAndReturnsSanitizedSetupEvents(t *t
 	}
 	cookie := &http.Cookie{Name: sessionCookieName, Value: current.Token}
 	mutation := validConfigSaveRequest(t, ReadConfigEditor(root))
-	mutation.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "diagnostic-api-secret"}
+	mutation.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "diagnostic-api-secret"}
 	mutation.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "diagnostic-smtp-secret"}
 	body, err := json.Marshal(mutation)
 	if err != nil {
@@ -463,7 +463,7 @@ func TestConfigurationStatusAPIIsRevisionScopedAndPersists(t *testing.T) {
 	}
 
 	mutation := validConfigSaveRequest(t, ReadConfigEditor(root))
-	mutation.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "configuration-status-api-key"}
+	mutation.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "configuration-status-api-key"}
 	mutation.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "configuration-status-smtp-password"}
 	body, err := json.Marshal(mutation)
 	if err != nil {
@@ -711,7 +711,7 @@ func TestConfigurationMutationRequiresCSRFAndNeverReturnsSecrets(t *testing.T) {
 	}
 	cookie := &http.Cookie{Name: sessionCookieName, Value: current.Token}
 	mutation := validConfigSaveRequest(t, ReadConfigEditor(root))
-	mutation.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "api-secret-never-return"}
+	mutation.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "api-secret-never-return"}
 	mutation.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "smtp-secret-never-return"}
 	body, err := json.Marshal(mutation)
 	if err != nil {
@@ -759,17 +759,17 @@ func TestSecretRevealRequiresCSRFPasswordAndCurrentRevision(t *testing.T) {
 	revision := ReadConfigEditor(root).Revision
 	body, _ := json.Marshal(secretRevealRequest{ExpectedRevision: revision, Password: password})
 
-	withoutCSRF := requestForTest(server, http.MethodPost, "/api/v1/config/secrets/ApiKey/reveal", bytes.NewReader(body), cookie)
+	withoutCSRF := requestForTest(server, http.MethodPost, "/api/v1/config/secrets/SiloApiKey/reveal", bytes.NewReader(body), cookie)
 	if withoutCSRF.Code != http.StatusForbidden {
 		t.Fatalf("secret reveal without CSRF: got %d, want 403", withoutCSRF.Code)
 	}
 	wrongBody, _ := json.Marshal(secretRevealRequest{ExpectedRevision: revision, Password: "incorrect password"})
-	wrong := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/ApiKey/reveal", wrongBody, cookie, current.CSRFToken)
+	wrong := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/SiloApiKey/reveal", wrongBody, cookie, current.CSRFToken)
 	if wrong.Code != http.StatusUnauthorized || strings.Contains(wrong.Body.String(), "requested-api-secret") {
 		t.Fatalf("wrong-password reveal: got %d, body %s", wrong.Code, wrong.Body.String())
 	}
 
-	revealed := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/ApiKey/reveal", body, cookie, current.CSRFToken)
+	revealed := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/SiloApiKey/reveal", body, cookie, current.CSRFToken)
 	if revealed.Code != http.StatusOK || !strings.Contains(revealed.Body.String(), "requested-api-secret") {
 		t.Fatalf("secret reveal: got %d, body %s", revealed.Code, revealed.Body.String())
 	}
@@ -785,7 +785,7 @@ func TestSecretRevealRequiresCSRFPasswordAndCurrentRevision(t *testing.T) {
 		t.Fatalf("unsupported secret reveal: got %d, body %s", unknown.Code, unknown.Body.String())
 	}
 	staleBody, _ := json.Marshal(secretRevealRequest{ExpectedRevision: "stale", Password: password})
-	stale := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/ApiKey/reveal", staleBody, cookie, current.CSRFToken)
+	stale := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/SiloApiKey/reveal", staleBody, cookie, current.CSRFToken)
 	if stale.Code != http.StatusConflict || strings.Contains(stale.Body.String(), "requested-api-secret") {
 		t.Fatalf("stale secret reveal: got %d, body %s", stale.Code, stale.Body.String())
 	}
@@ -804,7 +804,7 @@ func TestTrustedLocalSecretRevealNeedsExplicitSessionAndCSRFButNoPassword(t *tes
 	}
 	cookie := sessionRecorder.Result().Cookies()[0]
 	body, _ := json.Marshal(secretRevealRequest{ExpectedRevision: ReadConfigEditor(root).Revision})
-	revealed := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/ApiKey/reveal", body, cookie, current.CSRFToken)
+	revealed := mutationRequestForTest(server, http.MethodPost, "/api/v1/config/secrets/SiloApiKey/reveal", body, cookie, current.CSRFToken)
 	if revealed.Code != http.StatusOK || !strings.Contains(revealed.Body.String(), "trusted-local-api-secret") {
 		t.Fatalf("trusted-local secret reveal: got %d, body %s", revealed.Code, revealed.Body.String())
 	}

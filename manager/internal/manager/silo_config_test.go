@@ -44,21 +44,22 @@ func TestRedactedConfigNeverExposesSiloKeys(t *testing.T) {
 	}
 }
 
-func TestSiloMediaServerDoesNotRequireTautulliKey(t *testing.T) {
+func TestSiloManagerRequiresSiloKeyNotTautulliKey(t *testing.T) {
 	t.Parallel()
 	issues := map[string]string{}
-	validateConfigRelationships(map[string]any{"MediaServer": "Silo"}, issues)
-	if _, present := issues["ApiKey"]; present {
-		t.Fatalf("Silo configuration was asked for a Tautulli API key: %v", issues)
-	}
-	issues = map[string]string{}
-	validateConfigRelationships(map[string]any{"MediaServer": "tautulli"}, issues)
-	if _, present := issues["ApiKey"]; !present {
-		t.Fatal("Tautulli configuration no longer requires its API key")
-	}
-	issues = map[string]string{}
 	validateConfigRelationships(map[string]any{}, issues)
-	if _, present := issues["ApiKey"]; !present {
-		t.Fatal("default configuration no longer requires the Tautulli API key")
+	if _, present := issues["ApiKey"]; present {
+		t.Fatalf("Silo Manager asked for a Tautulli API key: %v", issues)
+	}
+	if _, present := issues["SiloApiKey"]; !present {
+		t.Fatal("Silo Manager does not require the Silo monitoring key")
+	}
+	issues = map[string]string{}
+	validateConfigRelationships(map[string]any{"SiloApiKey": "sa_fictional", "SiloProfileId": "bad profile/id"}, issues)
+	if _, present := issues["SiloApiKey"]; present {
+		t.Fatalf("configured Silo key was reported missing: %v", issues)
+	}
+	if _, present := issues["SiloProfileId"]; !present {
+		t.Fatal("unsafe Silo profile ID was accepted")
 	}
 }

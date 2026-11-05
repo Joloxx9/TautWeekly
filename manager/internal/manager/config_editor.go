@@ -141,15 +141,15 @@ func configDefinitions() []configDefinition {
 	bytesMin, bytesMax := integerBounds(16, 2048)
 	delayMin, delayMax := integerBounds(0, 3600)
 	return []configDefinition{
-		{Name: "TautulliUrl", Label: "Tautulli URL", Group: "Connections", Type: "url", Required: true, Help: "Base URL reachable from this Manager runtime. Verification runs after a successful save and is restricted to private or loopback destinations.", Placeholder: "http://127.0.0.1:8181", Default: "http://127.0.0.1:8181"},
-		{Name: "ApiKey", Label: "Tautulli API key", Group: "Connections", Type: "secret", Required: true, Help: "Leave blank to preserve the stored key. Revealing it requires your Manager password and clears automatically."},
-		{Name: "PlexServerUrl", Label: "Direct Plex server URL", Group: "Connections", Type: "url", Help: "Recommended for complete ratings, exact-episode metadata, backgrounds, and selected logos. Must be reachable from this Manager runtime.", Placeholder: "http://plex.example.test:32400", Default: ""},
-		{Name: "PlexToken", Label: "Plex token", Group: "Connections", Type: "secret", Help: "Recommended with the direct Plex URL. Leave blank to preserve it. A supported runtime token can be used without copying it into config.json."},
-		{Name: "PlexWebUrl", Label: "Open Plex button URL or custom link", Group: "Identity", Type: "url", Required: true, Default: "https://app.plex.tv/desktop/"},
-		{Name: "PlexButtonLabel", Label: "Button label", Group: "Identity", Type: "text", Required: true, Default: "Open Plex", Max: buttonLabelMax},
-		{Name: "ServerLabel", Label: "Header label", Group: "Identity", Type: "text", Required: true, Default: "PLEX"},
-		{Name: "FooterServerName", Label: "Server display name", Group: "Identity", Type: "text", Required: true, Default: "My Plex"},
-		{Name: "FromName", Label: "From display name", Group: "Email", Type: "text", Required: true, Default: "TautWeekly for Plex"},
+		{Name: "SiloUrl", Label: "Silo server URL", Group: "Connections", Type: "url", Required: true, Help: "Base URL of your Silo server reachable from this Manager runtime, such as http://192.168.1.10:8080. Verification runs after a successful save and is restricted to private or loopback destinations.", Placeholder: "http://192.168.1.10:8080", Default: ""},
+		{Name: "SiloApiKey", Label: "Silo monitoring API key", Group: "Connections", Type: "secret", Required: true, Help: "Key owned by a Silo administrator with the admin:monitor:read scope; it reads accounts, playback history, and the catalog. Leave blank to preserve the stored key."},
+		{Name: "SiloCatalogApiKey", Label: "Silo catalog API key", Group: "Connections", Type: "secret", Help: "Recommended: an unscoped key from an ordinary (non-administrator) Silo account that sees your libraries. Used for ratings, artwork, and library names. Empty uses the monitoring key."},
+		{Name: "SiloProfileId", Label: "Silo catalog profile ID", Group: "Connections", Type: "text", Help: "Optional. Leave empty to use the catalog key account's primary profile.", Default: ""},
+		{Name: "PlexWebUrl", Label: "Open Silo button URL or custom link", Group: "Identity", Type: "url", Help: "Leave empty to link to the Silo server URL.", Default: ""},
+		{Name: "PlexButtonLabel", Label: "Button label", Group: "Identity", Type: "text", Required: true, Default: "Open Silo", Max: buttonLabelMax},
+		{Name: "ServerLabel", Label: "Header label", Group: "Identity", Type: "text", Required: true, Default: "SILO"},
+		{Name: "FooterServerName", Label: "Server display name", Group: "Identity", Type: "text", Required: true, Default: "My Silo"},
+		{Name: "FromName", Label: "From display name", Group: "Email", Type: "text", Required: true, Default: "TautWeekly for Silo"},
 		{Name: "FromEmail", Label: "From email", Group: "Email", Type: "email", Required: true, Placeholder: "newsletter@example.com", Default: ""},
 		{Name: "ReplyToEmail", Label: "Reply-to email", Group: "Email", Type: "email", Placeholder: "newsletter@example.com", Default: ""},
 		{Name: "TestEmail", Label: "Test recipient", Group: "Email", Type: "email", Required: true, Placeholder: "you@example.com", Default: ""},
@@ -183,10 +183,10 @@ func configDefinitions() []configDefinition {
 		{Name: "CustomTextCardTitleGif", Label: "Optional title GIF", Group: "Custom text card", Type: "asset-id", Default: "none", Options: []string{"celebrate", "construction", "rocket", "tickets", "warning", "alert"}, Help: "Optional allowlisted GIF displayed beside the uppercase title."},
 		{Name: "CustomTextCardSubheading", Label: "Optional subheading", Group: "Custom text card", Type: "text", Default: "", Max: customSubheadingMax, Help: "Large white heading using the Welcome Aboard heading size."},
 		{Name: "CustomTextCardBody", Label: "Card body (required when enabled)", Group: "Custom text card", Type: "textarea", Default: "", Max: customBodyMax, Help: "Plain text only. Line breaks are preserved and HTML is always escaped."},
-		{Name: "IncludedLibraryIds", Label: "Included library IDs", Group: "Advanced", Type: "string-list", Help: "Comma-separated Tautulli section IDs. Empty retains legacy all-library scope.", Default: []string{}},
-		{Name: "ExcludedUserIds", Label: "Excluded user IDs", Group: "Advanced", Type: "string-list", Help: "Comma-separated Tautulli user IDs.", Default: []string{}},
-		{Name: "UserBccAddresses", Label: "Household copies (BCC)", Group: "Advanced", Type: "user-bcc-map", Help: "Private household copy addresses keyed by source Tautulli user ID.", Default: map[string][]string{}},
-		{Name: "UserEmailOverrides", Label: "Managed-user delivery addresses", Group: "Advanced", Type: "user-email-map", Help: "Private fallback delivery addresses keyed by numeric Tautulli user ID. Manager exposes assignments only in the authenticated guided Config flow.", Default: map[string]string{}},
+		{Name: "IncludedLibraryIds", Label: "Included library IDs", Group: "Advanced", Type: "string-list", Help: "Comma-separated Silo library IDs. Empty retains legacy all-library scope.", Default: []string{}},
+		{Name: "ExcludedUserIds", Label: "Excluded user IDs", Group: "Advanced", Type: "string-list", Help: "Comma-separated Silo account IDs.", Default: []string{}},
+		{Name: "UserBccAddresses", Label: "Household copies (BCC)", Group: "Advanced", Type: "user-bcc-map", Help: "Private household copy addresses keyed by source Silo account ID.", Default: map[string][]string{}},
+		{Name: "UserEmailOverrides", Label: "Managed-user delivery addresses", Group: "Advanced", Type: "user-email-map", Help: "Private fallback delivery addresses keyed by numeric Silo account ID. Manager exposes assignments only in the authenticated guided Config flow.", Default: map[string]string{}},
 		{Name: "ExcludedEmails", Label: "Excluded email addresses", Group: "Advanced", Type: "email-list", Help: "Legacy config-file exclusion list preserved by the Manager but not exposed in the GUI.", Default: []string{}},
 	}
 }
@@ -196,12 +196,9 @@ func ReadConfigEditor(root string) ConfigEditorView {
 	view := ConfigEditorView{SchemaVersion: 1, Exists: exists, Valid: state == "ready" || state == "unconfigured", State: state, Revision: configRevision(raw, exists)}
 	_, plexURLPresent := values["PlexServerUrl"]
 	_, plexTokenPresent := values["PlexToken"]
-	view.DirectPlex = DirectPlexStatus{
-		LegacyFieldsMissing:   exists && (!plexURLPresent || !plexTokenPresent),
-		URLConfigured:         configValueConfigured(values["PlexServerUrl"]),
-		TokenConfigured:       configValueConfigured(values["PlexToken"]),
-		RuntimeTokenAvailable: runtimePlexToken(values) != "" && !configValueConfigured(values["PlexToken"]),
-	}
+	// Silo-only Manager: there is no direct Plex connection to complete.
+	_, _ = plexURLPresent, plexTokenPresent
+	view.DirectPlex = DirectPlexStatus{URLConfigured: true, TokenConfigured: true}
 	view.Groups = []string{"Connections", "Identity", "Email", "SMTP", "Schedule", "Newsletter", "Cache", "Custom text card", "Advanced"}
 	if !view.Valid {
 		view.Fields = []ConfigEditorField{}
@@ -286,6 +283,7 @@ func SaveConfig(root string, request ConfigSaveRequest, now func() time.Time) (C
 	}
 
 	next := cloneConfigMap(current)
+	next["MediaServer"] = "silo"
 	for name, definition := range knownValues {
 		rawValue, ok := request.Values[name]
 		if !ok {
@@ -414,7 +412,7 @@ func classifyConfigPostSave(current, next map[string]any, existed bool) ConfigPo
 	cacheCoverageChanged := false
 	for name := range changed {
 		switch {
-		case name == "TautulliUrl" || name == "ApiKey":
+		case name == "TautulliUrl" || name == "ApiKey" || strings.HasPrefix(name, "Silo") || name == "MediaServer":
 			category["tautulli"] = true
 			cacheCoverageChanged = true
 			plan.RunDiscovery = true
@@ -820,7 +818,7 @@ func parseAndValidateConfigValue(raw json.RawMessage, definition configDefinitio
 		if definition.Type == "select" && text != "" && !containsFold(definition.Options, text) {
 			return nil, "Choose one of the available values."
 		}
-		if definition.Name == "TautulliUrl" {
+		if definition.Name == "TautulliUrl" || definition.Name == "SiloUrl" {
 			text = strings.TrimRight(text, "/")
 		}
 		return text, ""
@@ -849,8 +847,11 @@ func validateConfigRelationships(values map[string]any, fieldErrors map[string]s
 	// A Silo deployment reads its media server through the renderer's Silo
 	// provider (MediaServer, SiloUrl, SiloApiKey in config.json); it has no
 	// Tautulli key. The renderer validates the Silo fields itself.
-	if !configUsesSiloMediaServer(values) && !secretConfigured(values, "ApiKey") {
-		fieldErrors["ApiKey"] = "A Tautulli API key is required."
+	if !secretConfigured(values, "SiloApiKey") {
+		fieldErrors["SiloApiKey"] = "A Silo monitoring API key is required."
+	}
+	if profile := strings.TrimSpace(fmt.Sprint(values["SiloProfileId"])); profile != "" && profile != "<nil>" && !validSiloProfileID(profile) {
+		fieldErrors["SiloProfileId"] = "Use the profile identifier Silo reports (letters, digits, and dashes)."
 	}
 	authentication, _ := values["SmtpUseAuthentication"].(bool)
 	if authentication {
@@ -1055,4 +1056,16 @@ func configInteger(values map[string]any, name string) int64 {
 	default:
 		return 0
 	}
+}
+
+func validSiloProfileID(value string) bool {
+	if len(value) > 64 {
+		return false
+	}
+	for _, character := range value {
+		if !(character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' || character == '-') {
+			return false
+		}
+	}
+	return true
 }

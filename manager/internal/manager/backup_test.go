@@ -13,7 +13,7 @@ import (
 func TestListAndRestoreConfigBackup(t *testing.T) {
 	root := t.TempDir()
 	initial := validConfigSaveRequest(t, ReadConfigEditor(root))
-	initial.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "backup-api-secret"}
+	initial.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "backup-api-secret"}
 	initial.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "backup-smtp-secret"}
 	created, fields, err := SaveConfig(root, initial, func() time.Time { return time.Date(2031, 4, 18, 16, 0, 0, 0, time.UTC) })
 	if err != nil || len(fields) > 0 {
@@ -52,7 +52,7 @@ func TestListAndRestoreConfigBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(raw), "Changed server") || !strings.Contains(string(raw), "My Plex") {
+	if strings.Contains(string(raw), "Changed server") || !strings.Contains(string(raw), "My Silo") {
 		t.Fatalf("restore did not replace config with the selected backup: %s", raw)
 	}
 	if _, err := os.Stat(filepath.Join(root, restored.SafetyBackup)); err != nil {

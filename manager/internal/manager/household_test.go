@@ -51,10 +51,10 @@ func TestHouseholdSelectedPrimaryEndpoint(t *testing.T) {
 	native := "native@example.org"
 	returnedID := "7"
 	tautulli := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("cmd") != "get_user" || r.URL.Query().Get("user_id") != "7" {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v2/admin/users/7" || r.Header.Get("Authorization") != "Bearer synthetic-key" {
 			t.Error("lookup was not selected-user only")
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"result": "success", "data": map[string]any{"user_id": returnedID, "email": native, "is_active": 1}}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": returnedID, "email": native, "enabled": true})
 	}))
 	defer tautulli.Close()
 	root := integrationConfigRoot(t, tautulli.URL, "synthetic-key", "", "")

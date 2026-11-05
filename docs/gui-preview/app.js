@@ -475,12 +475,12 @@ function renderCapabilities() {
       ? "Back up the package data directory, then run ./tautweekly.sh update. The host downloads and verifies the stable Mac archive plus its internal file manifest, preserves .env and data, verifies container health and version, and restores prior package files and the prior local image on rollback."
     : "Use the signed-in Windows installer workflow for verified update, migration, rollback, and removal while private Manager and newsletter data remain outside the replaceable application directory.");
   setText("preview-runner-copy", nas
-    ? "Uses the saved configuration and Tautulli user ID to create local HTML in the persistent output volume. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state."
+    ? "Uses the saved configuration and Silo user ID to create local HTML in the persistent output volume. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state."
     : linux
-      ? "Uses the saved configuration and Tautulli user ID to create local HTML under the protected Linux data directory. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state."
+      ? "Uses the saved configuration and Silo user ID to create local HTML under the protected Linux data directory. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state."
     : mac
-      ? "Uses the saved configuration and Tautulli user ID to create local HTML under the package's persistent Mac data directory. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state."
-    : "Uses the saved configuration and Tautulli user ID to create local HTML in the package output folder. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state.");
+      ? "Uses the saved configuration and Silo user ID to create local HTML under the package's persistent Mac data directory. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state."
+    : "Uses the saved configuration and Silo user ID to create local HTML in the package output folder. This action contacts the configured services, but does not contact SMTP, send email, or change welcome state.");
   setText("access-settings-eyebrow", service ? "Required Manager authentication" : "Optional Manager lock");
   setText("access-settings-heading", service ? "Administrator password" : "Browser access");
   byId("access-recovery-copy").innerHTML = nas
@@ -526,8 +526,8 @@ function renderFirstTimeSetup() {
   if (firstRun) {
     setChip("first-time-setup-chip", "Not run", "pending");
     setText("first-time-setup-copy", state.runtimeMode === "windows"
-      ? "Add Tautulli, Plex, and email settings first. Optional public Funnel access stays off until you create a unique Manager password in Settings."
-      : "Add Tautulli, Plex, and email settings, then let the Manager validate the non-sending setup checks.");
+      ? "Add Silo and email settings first. Optional public Funnel access stays off until you create a unique Manager password in Settings."
+      : "Add Silo and email settings, then let the Manager validate the non-sending setup checks.");
   }
 }
 
@@ -554,7 +554,7 @@ function setupWorkflowPresentation(workflow = state.setupWorkflow) {
       label: "Needs review",
       tone: "bad",
       summary: retainedChoices
-        ? "Live Tautulli choice refresh failed. Cached library and user choices remain retained; other check labels are separate retained evidence."
+        ? "Live Silo choice refresh failed. Cached library and user choices remain retained; other check labels are separate retained evidence."
         : "One or more saved setup checks need review before live delivery.",
     };
   }
@@ -679,7 +679,7 @@ function renderIntegrationStatus() {
   const steps = new Map((last?.steps || []).map((step) => [step.service, step]));
   const retainedLANState = retainedSetupCheckState("lan");
   const retainedSMTPState = retainedSetupCheckState("smtp");
-  const tautulliState = steps.get("tautulli")?.state || retainedLANState || "not checked";
+  const tautulliState = (steps.get("silo") || steps.get("tautulli"))?.state || retainedLANState || "not checked";
   const plexState = steps.get("plex")?.state || retainedLANState || "not checked";
   const smtpState = smtp?.state || retainedSMTPState || "not checked";
   setText("tautulli-state", titleCase(tautulliState));
@@ -715,7 +715,7 @@ function renderIntegrationStatus() {
   const overallLabel = verificationActive ? "Running" : overall === "not-run" ? "Not run" : overall === "warning" ? "Attention" : titleCase(overall);
   setChip("integration-chip", overallLabel, overallTone);
   setText("integration-copy", state.discoveryError && outcomes.length
-    ? "Tautulli/Plex and SMTP labels are retained checks with their own timestamps; the failed live choices refresh did not rerun them."
+    ? "Silo and SMTP labels are retained checks with their own timestamps; the failed live choices refresh did not rerun them."
     : outcomes.length
       ? "Latest checks from validation or a targeted retest are retained for this saved configuration."
       : "Safe real checks run after a successful save or when you start a manual retest.");
@@ -1033,7 +1033,7 @@ function rendererFailureCopy(category, supportCode) {
   case "operation-busy": return "Another newsletter, update, or scheduled-delivery operation owns the package renderer. Wait for it to finish, then retry." + suffix;
   case "configuration-invalid": return "The renderer could not load the saved configuration snapshot. Review Config, then retry." + suffix;
   case "user-excluded": return "The selected user is excluded by the saved recipient policy. Include and save that user before retrying." + suffix;
-  case "tautulli-unavailable": return "The renderer could not complete the required Tautulli data stage. Run Verify, then retry." + suffix;
+  case "tautulli-unavailable": return "The renderer could not complete the required Silo data stage. Run Verify, then retry." + suffix;
   case "plex-unavailable": return "Direct Plex verification could not be completed. Review the sanitized evidence under Verify, then retry." + suffix;
   case "asset-unavailable": return "The renderer could not prepare a required local media asset. Review private data-directory access and free space, then retry." + suffix;
   case "render-failed": return "Newsletter HTML construction failed before the operation completed. Review Config and Verify, then retry." + suffix;
@@ -1045,7 +1045,7 @@ function rendererFailureCopy(category, supportCode) {
   case "smtp-provider-rejected": return "The SMTP provider rejected a batch-wide protocol stage, so delivery stopped before another recipient attempt. Review the provider account or SMTP policy before retrying." + suffix;
   case "smtp-transport-failed": return "The SMTP connection ended before message acceptance could begin, so the batch stopped before another recipient attempt. Verify the provider endpoint, then retry cautiously." + suffix;
   case "smtp-acceptance-unknown": return "The SMTP connection ended after message data was submitted but before acceptance could be confirmed. The message was not retried, and the batch stopped to prevent duplicates." + suffix;
-  case "user-roster-refresh-failed": return "Tautulli could not confirm a fresh Plex user roster, so production delivery stopped before SMTP. Confirm Tautulli can reach Plex, then retry." + suffix;
+  case "user-roster-refresh-failed": return "Silo could not confirm a fresh account roster, so production delivery stopped before SMTP. Confirm Silo is reachable, then retry." + suffix;
   case "platform-unsupported": return "This package does not expose the requested renderer operation." + suffix;
   case "manager-restarted": return "The Manager restarted before it could reconcile the renderer result. Refresh status, then retry." + suffix;
   default: return "The package renderer did not complete successfully. Raw process output was not retained." + suffix;
@@ -1182,11 +1182,11 @@ function renderDiscovery() {
   const ready = state.editor?.state === "ready";
   const networkBusy = state.discoveryRunning || state.verificationRunning || state.smtpVerificationRunning;
   button.disabled = networkBusy || !ready || !confirm.checked;
-  setSwappingButtonText("discovery-run-button", state.discoveryRunning ? "Loading choices..." : "Refresh Tautulli choices");
+  setSwappingButtonText("discovery-run-button", state.discoveryRunning ? "Loading choices..." : "Refresh Silo choices");
   if (!state.discovery) {
     byId("discovery-results").hidden = true;
     byId("discovery-message").textContent = state.discoveryError || (ready
-      ? "The first valid save or a saved Tautulli connection change loads these choices automatically. Confirm above to repeat the saved service lookup now."
+      ? "The first valid save or a saved Silo connection change loads these choices automatically. Confirm above to repeat the saved service lookup now."
       : "Save a complete configuration before loading choices.");
     renderManagedUserDeliveryAddresses();
     renderUserComboboxes();
@@ -1416,7 +1416,7 @@ function renderManagedUserDeliveryAddresses() {
     label.htmlFor = inputID;
     label.textContent = user.name;
     const detail = document.createElement("small");
-    detail.textContent = `Tautulli user ${user.id}`;
+    detail.textContent = `Silo user ${user.id}`;
     identity.append(label, detail);
     const input = document.createElement("input");
     input.id = inputID;
@@ -1555,7 +1555,7 @@ function renderUserComboboxOptions(container) {
   if (!users.length) {
     const empty = document.createElement("p");
     empty.className = "user-combobox-empty";
-    empty.textContent = state.discovery ? "No matching included Tautulli user. Save exclusion changes before selecting an excluded user." : "Load Tautulli choices from Config to browse users.";
+    empty.textContent = state.discovery ? "No matching included Silo user. Save exclusion changes before selecting an excluded user." : "Load Silo choices from Config to browse users.";
     list.append(empty);
     return;
   }
@@ -1655,7 +1655,7 @@ async function runTautulliDiscovery(options = {}) {
   state.discoveryRunning = true;
   renderDiscovery();
   renderVerification();
-  if (announceGlobalStatus) setGlobalStatus("Loading private Tautulli choices...");
+  if (announceGlobalStatus) setGlobalStatus("Loading private Silo choices...");
   try {
     const discovery = await request("/api/v1/discovery/tautulli", {
       method: "POST",
@@ -1668,7 +1668,7 @@ async function runTautulliDiscovery(options = {}) {
     state.discoveryError = "";
     if (state.status) renderDashboardGreeting(state.status.observedAtUtc);
     byId("discovery-confirm").checked = false;
-    if (announceGlobalStatus) setGlobalStatus("Tautulli choices loaded and retained locally.", true);
+    if (announceGlobalStatus) setGlobalStatus("Silo choices loaded and retained locally.", true);
   } catch (error) {
     if (discoveryAuthenticationEpoch !== authenticationEpoch || byId("app-shell").hidden) return false;
     state.discoveryError = discoveryFailureMessage(error.message);
@@ -2286,7 +2286,7 @@ async function runPostSaveSetup(revision, plan) {
 
   if (plan.runIntegration) {
     state.verificationRunning = true;
-    updateSetupWorkflowStep("lan", "running", "Testing the saved Tautulli and direct Plex endpoints...");
+    updateSetupWorkflowStep("lan", "running", "Testing the saved Silo endpoints...");
     renderDiscovery();
     renderVerification();
     try {
@@ -2296,7 +2296,7 @@ async function runPostSaveSetup(revision, plan) {
       });
       state.verification = { ...state.verification, last: result };
       updateSetupWorkflowStep("lan", result.overall, result.overall === "passed"
-        ? "Tautulli and direct Plex verification passed. Detailed evidence is available under Verify."
+        ? "Silo verification passed. Detailed evidence is available under Verify."
         : "The connection checks completed with a result that needs review under Verify.");
     } catch (error) {
       updateSetupWorkflowStep("lan", "failed", error.message);
@@ -2342,13 +2342,13 @@ async function runPostSaveSetup(revision, plan) {
 
   const suggestedUserID = suggestedSelectablePreviewUserID();
   if (plan.generatePreviews && !cacheStarted && discoveryFailed) {
-    updateSetupWorkflowStep("previews", "skipped", "Preview generation was skipped because Tautulli choices could not be refreshed. Resolve the discovery result, then use Refresh Tautulli choices to continue without another save.");
+    updateSetupWorkflowStep("previews", "skipped", "Preview generation was skipped because Silo choices could not be refreshed. Resolve the discovery result, then use Refresh Silo choices to continue without another save.");
     await retainSkippedPreviewStatus(revision, "discovery-failed");
   } else if (plan.generatePreviews && !cacheStarted && !discovered) {
-    updateSetupWorkflowStep("previews", "skipped", "Preview generation was skipped because no retained Tautulli choices are available. Refresh Tautulli choices to continue without another save.");
+    updateSetupWorkflowStep("previews", "skipped", "Preview generation was skipped because no retained Silo choices are available. Refresh Silo choices to continue without another save.");
     await retainSkippedPreviewStatus(revision, "choices-unavailable");
   } else if (plan.generatePreviews && !cacheStarted && !validOperationUserID(suggestedUserID)) {
-    updateSetupWorkflowStep("previews", "skipped", "Tautulli did not expose one unambiguous included owner or administrator ID. Include and save a user if needed, then choose one under Previews to generate the six local states manually.");
+    updateSetupWorkflowStep("previews", "skipped", "Silo did not expose one unambiguous included owner or administrator ID. Include and save a user if needed, then choose one under Previews to generate the six local states manually.");
     await retainSkippedPreviewStatus(revision, "owner-not-found");
   } else if (plan.generatePreviews && !cacheStarted && (operationIsActive(state.operation) || scheduleOperationIsActive(state.scheduleOperation))) {
     updateSetupWorkflowStep("previews", "skipped", "Another Manager or schedule operation is active. Generate previews manually after it finishes.");
@@ -2806,7 +2806,7 @@ function renderVerification() {
     byId("cache-verification-message").textContent = "Complete and save configuration before checking local cache storage.";
   } else {
     byId("verification-message").textContent = state.verificationRunning
-      ? "Contacting the saved Tautulli and direct Plex services. This may take up to 45 seconds."
+      ? "Contacting the saved Silo services. This may take up to 45 seconds."
       : "No service request occurs until the confirmation is checked and the button is pressed.";
     byId("smtp-verification-message").textContent = state.smtpVerificationRunning
       ? "Contacting the saved SMTP endpoint without authenticating or sending. This may take up to 45 seconds."
@@ -2831,7 +2831,7 @@ function renderVerification() {
     }
   } else if (retainedLANState) {
     setText("verification-observed", "Retained from the latest safe setup validation for this configuration.");
-    appendVerificationResult(results, "Tautulli and direct Plex", retainedLANState, state.setupWorkflow.steps.lan.summary);
+    appendVerificationResult(results, "Silo", retainedLANState, state.setupWorkflow.steps.lan.summary);
   } else {
     setText("verification-observed", "No integration result is retained for this saved configuration.");
     appendVerificationEmpty(results, "Validate and save to run every safe setup check, or repeat this targeted connection test.");
@@ -2956,7 +2956,7 @@ async function runVerification() {
   setSwappingButtonText("verification-run-button", "Testing saved services...");
   renderVerification();
   renderDiscovery();
-  setGlobalStatus("Running Tautulli and direct Plex connection checks...");
+  setGlobalStatus("Running Silo connection checks...");
   try {
     const result = await request("/api/v1/checks/integrations", {
       method: "POST",
@@ -3124,24 +3124,24 @@ function renderOperations() {
   startButton.disabled = state.operationStarting || state.operationCancelling || active || scheduleActive || !ready || !userIDValid || !confirmed;
   setSwappingButtonText("preview-run-button", state.operationStarting && state.operationStartingType === "preview-all" ? "Starting preview generation..." : active || scheduleActive ? "Another operation is active" : "Generate all previews");
 
-  let message = "Enter a numeric Tautulli user ID, then confirm this preview-only run.";
+  let message = "Enter a numeric Silo user ID, then confirm this preview-only run.";
   if (!ready) message = "Complete and save configuration before generating previews.";
   else if (active) message = operation.type === "preview-all" ? (operation.state === "cancelling" ? "Stopping the local preview process safely..." : "Generating previews. You can leave this page while the Manager tracks the operation.") : operation.type === "cache-warm" ? "Refreshing deleted-item cache coverage locally. No email is sent." : "An email delivery is active. Wait for its aggregate SMTP result before starting another operation.";
   else if (scheduleActive) message = "Wait for the active schedule change before generating previews.";
   else if (state.operationStarting) message = "Starting a fixed Manager operation...";
-  else if (!userIDValid && userID) message = validPreviewUserID(userID) ? "Choose an included user from the saved Tautulli choices. Save exclusion changes before using an excluded user." : "Enter a numeric Tautulli user ID using no more than 20 digits.";
+  else if (!userIDValid && userID) message = validPreviewUserID(userID) ? "Choose an included user from the saved Silo choices. Save exclusion changes before using an excluded user." : "Enter a numeric Silo user ID using no more than 20 digits.";
   else if (userIDValid && confirmed) message = "Ready to generate six local previews without sending email.";
   setText("preview-operation-message", message);
 
   const testButton = byId("test-send-run-button");
   testButton.disabled = state.operationStarting || active || scheduleActive || !ready || !testUserIDValid || !testConfirmed;
   setSwappingButtonText("test-send-run-button", state.operationStarting && state.operationStartingType === "send-test-all" ? "Starting test delivery..." : active || scheduleActive ? "Another operation is active" : "Send six test messages");
-  let testMessage = "Enter a numeric Tautulli user ID, then confirm the six-message test delivery.";
+  let testMessage = "Enter a numeric Silo user ID, then confirm the six-message test delivery.";
   if (!ready) testMessage = "Complete and save configuration before sending a test delivery.";
   else if (active) testMessage = operation.type === "send-test-all" ? "Sending to the configured TestEmail. Cancellation is disabled because some messages may already be accepted by SMTP." : "Another Manager operation is active. Wait for it to finish before starting a test delivery.";
   else if (scheduleActive) testMessage = "Wait for the active schedule change before starting a test delivery.";
   else if (state.operationStarting) testMessage = "Starting a fixed Manager operation...";
-  else if (!testUserIDValid && testUserID) testMessage = validPreviewUserID(testUserID) ? "Choose an included user from the saved Tautulli choices. Save exclusion changes before using an excluded user." : "Enter a numeric Tautulli user ID using no more than 20 digits.";
+  else if (!testUserIDValid && testUserID) testMessage = validPreviewUserID(testUserID) ? "Choose an included user from the saved Silo choices. Save exclusion changes before using an excluded user." : "Enter a numeric Silo user ID using no more than 20 digits.";
   else if (testUserIDValid && testConfirmed) testMessage = "Ready to send six real messages only to the configured TestEmail.";
   setText("test-send-operation-message", testMessage);
 
@@ -3149,12 +3149,12 @@ function renderOperations() {
   manualSendButton.disabled = state.operationStarting || active || scheduleActive || !ready || !manualSendConfirmed || !manualSendUserValid;
   const manualSendButtonLabel = manualWelcome ? "Send Manual Welcome" : "Send newsletter to all";
   setSwappingButtonText("manual-send-run-button", state.operationStarting && state.operationStartingType === manualSendType ? "Starting manual delivery..." : active || scheduleActive ? "Another operation is active" : manualSendButtonLabel);
-  let manualSendMessage = manualWelcome ? "Choose a Tautulli user, then explicitly confirm the one-message Manual Welcome delivery." : "Explicitly confirm the all-recipient production delivery to enable this action.";
+  let manualSendMessage = manualWelcome ? "Choose a Silo user, then explicitly confirm the one-message Manual Welcome delivery." : "Explicitly confirm the all-recipient production delivery to enable this action.";
   if (!ready) manualSendMessage = "Complete and save configuration before sending a production newsletter.";
   else if (active) manualSendMessage = ["send-welcome", "send-all"].includes(operation.type) ? "A production delivery is running. Cancellation is disabled because a message may already be accepted by SMTP." : "Another Manager operation is active. Wait for it to finish before sending a production newsletter.";
   else if (scheduleActive) manualSendMessage = "Wait for the active schedule change before sending a production newsletter.";
   else if (state.operationStarting) manualSendMessage = "Starting a fixed Manager operation...";
-  else if (manualWelcome && manualSendUserID && !manualSendUserValid) manualSendMessage = validPreviewUserID(manualSendUserID) ? "Choose an included user from the saved Tautulli choices. Save exclusion changes before sending a Manual Welcome." : "Enter a numeric Tautulli user ID using no more than 20 digits.";
+  else if (manualWelcome && manualSendUserID && !manualSendUserValid) manualSendMessage = validPreviewUserID(manualSendUserID) ? "Choose an included user from the saved Silo choices. Save exclusion changes before sending a Manual Welcome." : "Enter a numeric Silo user ID using no more than 20 digits.";
   else if (manualSendConfirmed && manualSendUserValid) manualSendMessage = manualWelcome ? "Ready to send one real Manual Welcome message to the selected user." : "Ready to send real email to every currently eligible recipient.";
   setText("manual-send-operation-message", manualSendMessage);
 
@@ -3170,11 +3170,11 @@ function renderManualSendChoice(type) {
   byId("manual-send-user-field").hidden = !manualWelcome;
   setSwappingText("manual-send-runner-heading", manualWelcome ? "Send one Manual Welcome" : "Send this week's newsletter now");
   setText("manual-send-runner-copy", manualWelcome
-    ? "Sends the renderer's Manual Welcome state to one selected Tautulli user, then updates that recipient's welcome and history state. It does not contact other Plex users."
+    ? "Sends the renderer's Manual Welcome state to one selected Silo user, then updates that recipient's welcome and history state. It does not contact other Silo users."
     : "Runs the same fixed production delivery used by the schedule, applies saved library and user exclusions, and updates recipient welcome and history state for every eligible recipient.");
   setText("manual-send-confirm-heading", manualWelcome ? "Send one Manual Welcome newsletter" : "Send the production newsletter to all eligible recipients");
   setText("manual-send-confirm-copy", manualWelcome
-    ? "I understand this sends one real email to the selected Plex user and updates that user's welcome state. The operation cannot be cancelled after it starts."
+    ? "I understand this sends one real email to the selected Silo user and updates that user's welcome state. The operation cannot be cancelled after it starts."
     : "I understand this may send real email to every eligible recipient and updates recipient state. The operation cannot be cancelled after it starts.");
 }
 
@@ -3307,7 +3307,7 @@ function operationSummary(operation) {
   if (operation.type === "send-welcome") {
     switch (operation.state) {
     case "queued": return { heading: "Manual Welcome queued", copy: "One selected-user welcome newsletter is waiting to start." };
-    case "running": return { heading: "Sending one Manual Welcome", copy: "One selected Plex user is being processed. Cancellation is disabled once delivery begins." };
+    case "running": return { heading: "Sending one Manual Welcome", copy: "One selected Silo user is being processed. Cancellation is disabled once delivery begins." };
     case "succeeded": return { heading: "Manual Welcome accepted by SMTP", copy: `One welcome message was accepted by SMTP.${householdCopyReport(operation)} The selected user's welcome state was updated; inbox delivery is not asserted.` };
     case "partial": return { heading: "Welcome accepted with household copy warnings", copy: `The primary welcome was accepted and its welcome state updated.${householdCopyReport(operation)} Inbox delivery is not asserted.` };
     case "failed": return { heading: "Manual Welcome delivery failed", copy: `${rendererFailureCopy(operation.errorCategory, operation.supportCode)}${smtpFailureEvidenceCopy(operation.smtpFailure)}` };
@@ -4210,7 +4210,7 @@ function renderUpdates() {
   else if (update.installState === "completed") message.textContent = "The verified Windows updater completed. Refreshing local package status.";
   else if (backoffActive) message.textContent = `The next manual check is available after ${formatDate(update.nextCheckAllowedAtUtc)}. This bounded delay prevents repeated upstream requests.`;
   else if (update.lastFailure?.action === "check") message.textContent = "The last check failed safely. Cached local status remains available, and newsletter delivery is unaffected.";
-  else message.textContent = "Normal Manager and dashboard health never depend on Internet availability. Header Refresh reloads local status, repeats the saved Tautulli choices lookup when configuration is ready, and performs an eligible stable-release check; Check now remains update-only.";
+  else message.textContent = "Normal Manager and dashboard health never depend on Internet availability. Header Refresh reloads local status, repeats the saved Silo choices lookup when configuration is ready, and performs an eligible stable-release check; Check now remains update-only.";
 }
 
 function renderUpdateStatusButton(update) {

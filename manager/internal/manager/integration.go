@@ -156,9 +156,7 @@ func RunRealIntegrationCheck(ctx context.Context, root string, request RealInteg
 	defer cancel()
 
 	client := newLANOnlyHTTPClient()
-	tautulliStep, serverData := verifyTautulli(checkContext, client, values)
-	plexStep := verifyPlex(checkContext, client, values, serverData)
-	steps := []IntegrationCheckStep{tautulliStep, plexStep}
+	steps := []IntegrationCheckStep{verifySilo(checkContext, client, values)}
 	overall := integrationCheckOverall(steps)
 	return IntegrationCheckResult{
 		Mode:            "real-lan",
@@ -200,12 +198,17 @@ func DiscoverTautulliChoices(ctx context.Context, root string, request TautulliD
 	if request.ExpectedRevision == "" || request.ExpectedRevision != revision {
 		return TautulliDiscoveryResult{}, ErrConfigConflict
 	}
+	if now == nil {
+		now = time.Now
+	}
+	return discoverSiloChoices(ctx, values, revision, now)
+}
+
+// discoverTautulliChoices is the original Tautulli lookup, retained for reference.
+func discoverTautulliChoices(ctx context.Context, values map[string]any, revision string, now func() time.Time) (TautulliDiscoveryResult, error) {
 	base, err := parseLANBaseURL(configMapString(values, "TautulliUrl"))
 	if err != nil {
 		return TautulliDiscoveryResult{}, err
-	}
-	if now == nil {
-		now = time.Now
 	}
 	checkContext, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()

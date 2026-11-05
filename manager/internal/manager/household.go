@@ -3,8 +3,8 @@ package manager
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -82,15 +82,13 @@ func (s *Server) handleHouseholdPrimary(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, http.StatusConflict, "config-conflict", "Refresh the saved configuration before viewing an address.")
 		return
 	}
-	base, err := parseLANBaseURL(configMapString(values, "TautulliUrl"))
-	if err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	detail, err := siloUserDetail(ctx, values, request.UserID)
+	if errors.Is(err, errLANOnlyDestination) {
 		writeAPIError(w, http.StatusUnprocessableEntity, "lookup-boundary", "The saved service must be on a private or loopback network.")
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	var detail map[string]any
-	err = tautulliCommandWithParams(ctx, newLANOnlyHTTPClient(), base, configMapString(values, "ApiKey"), "get_user", url.Values{"user_id": {request.UserID}}, &detail)
 	if err != nil || discoveryUserID(detail["user_id"]) != request.UserID {
 		writeAPIError(w, http.StatusBadGateway, "lookup-unavailable", "The selected user could not be verified.")
 		return

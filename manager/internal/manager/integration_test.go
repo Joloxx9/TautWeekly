@@ -12,11 +12,8 @@ import (
 	"errors"
 	"math/big"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -332,85 +329,6 @@ func setIntegrationConfigValues(t *testing.T, root string, updates map[string]an
 	}
 }
 
-func TestRealIntegrationCheckUsesLANServicesWithoutReturningSecrets(t *testing.T) {
-	const tautulliSecret = "fictional-tautulli-secret"
-	const plexSecret = "fictional-plex-secret"
-	plex := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Plex-Token") != plexSecret {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/identity":
-			_, _ = w.Write([]byte(`{"MediaContainer":{"machineIdentifier":"fictional-machine"}}`))
-		case "/library/sections":
-			_, _ = w.Write([]byte(`{"MediaContainer":{"size":2,"Directory":[]}}`))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer plex.Close()
-
-	tautulli := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v2" || r.URL.Query().Get("apikey") != tautulliSecret {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		var data any
-		switch r.URL.Query().Get("cmd") {
-		case "get_tautulli_info":
-			data = map[string]any{"tautulli_version": "2.16.0-fixture"}
-		case "get_user_names":
-			data = []any{map[string]any{"user_id": "1"}, map[string]any{"user_id": "2"}}
-		case "get_libraries":
-			data = []any{
-				map[string]any{"section_id": "10", "section_type": "movie", "is_active": 1},
-				map[string]any{"section_id": "20", "section_type": "show", "is_active": 1},
-			}
-		case "get_server_info":
-			data = map[string]any{"pms_url": plex.URL, "pms_identifier": "fictional-machine"}
-		default:
-			http.Error(w, "unsupported", http.StatusBadRequest)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"result": "success", "message": "", "data": data}})
-	}))
-	defer tautulli.Close()
-
-	root := integrationConfigRoot(t, tautulli.URL, tautulliSecret, plex.URL, plexSecret)
-	view := ReadConfigEditor(root)
-	result, err := RunRealIntegrationCheck(context.Background(), root, RealIntegrationCheckRequest{
-		ExpectedRevision:   view.Revision,
-		ConfirmRealNetwork: true,
-	}, func() time.Time { return time.Date(2031, 4, 18, 16, 30, 0, 0, time.UTC) })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Overall != "passed" || len(result.Steps) != 2 || result.Steps[0].State != "passed" || result.Steps[1].State != "passed" {
-		t.Fatalf("unexpected verification result: %+v", result)
-	}
-	setIntegrationConfigValues(t, root, map[string]any{"PlexServerUrl": "", "PlexToken": ""})
-	t.Setenv("PLEX_TOKEN", plexSecret)
-	runtimeView := ReadConfigEditor(root)
-	runtimeResult, err := RunRealIntegrationCheck(context.Background(), root, RealIntegrationCheckRequest{
-		ExpectedRevision:   runtimeView.Revision,
-		ConfirmRealNetwork: true,
-	}, time.Now)
-	if err != nil || runtimeResult.Overall != "passed" || runtimeResult.Steps[1].State != "passed" {
-		t.Fatalf("runtime Plex fallback verification: result=%+v err=%v", runtimeResult, err)
-	}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, secret := range []string{tautulliSecret, plexSecret} {
-		if strings.Contains(string(encoded), secret) {
-			t.Fatalf("verification response returned secret %q", secret)
-		}
-	}
-}
-
 func TestIntegrationCheckOverallTreatsOptionalDirectPlexSkipAsPassed(t *testing.T) {
 	steps := []IntegrationCheckStep{
 		{Service: "tautulli", State: "passed"},
@@ -442,197 +360,6 @@ func TestRealIntegrationCheckRequiresConfirmationRevisionAndLAN(t *testing.T) {
 	}
 	if result.Overall != "failed" || result.Steps[0].State != "failed" || !strings.Contains(result.Steps[0].Summary, "private or loopback") {
 		t.Fatalf("public destination was not blocked safely: %+v", result)
-	}
-}
-
-func TestTautulliDiscoveryReturnsSanitizedChoicesWithoutEmailOrSecrets(t *testing.T) {
-	const secret = "fictional-discovery-secret"
-	tautulli := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v2" || r.URL.Query().Get("apikey") != secret {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		var data any
-		switch r.URL.Query().Get("cmd") {
-		case "get_libraries":
-			data = []any{
-				map[string]any{"section_id": "20", "section_name": "Fictional Shows", "section_type": "show", "is_active": 1, "count": 12},
-				map[string]any{"section_id": "10", "section_name": "Fictional Movies", "section_type": "movie", "is_active": true, "count": 34},
-				map[string]any{"section_id": "30", "section_name": "Music", "section_type": "artist", "is_active": 1},
-			}
-		case "get_user_names":
-			data = []any{
-				map[string]any{"user_id": "2", "friendly_name": "Fictional Viewer"},
-				map[string]any{"user_id": "3", "friendly_name": "Fictional Managed Viewer"},
-				map[string]any{"user_id": int64(1234567890123456789), "friendly_name": "Fictional Archived Viewer"},
-			}
-		case "get_users":
-			data = []any{
-				map[string]any{"user_id": "1", "friendly_name": "Fictional Admin", "is_active": 1, "do_notify": 0, "is_admin": 1},
-				map[string]any{"user_id": "2", "username": "viewer", "email": "private-viewer@example.org", "is_active": 0, "do_notify": 1},
-				map[string]any{"user_id": "3", "username": "managed", "email": "", "is_active": 1, "do_notify": 1},
-			}
-		case "get_users_table":
-			if r.URL.Query().Get("start") != "0" || r.URL.Query().Get("length") != strconv.Itoa(maximumDiscoveryChoices) {
-				http.Error(w, "invalid table window", http.StatusBadRequest)
-				return
-			}
-			data = map[string]any{"data": []any{
-				map[string]any{"user_id": "1", "friendly_name": "Fictional Admin", "email": "private-admin@example.org", "is_active": 1, "do_notify": 0},
-			}}
-		default:
-			http.Error(w, "unsupported", http.StatusBadRequest)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"result": "success", "data": data}})
-	}))
-	defer tautulli.Close()
-
-	root := integrationConfigRoot(t, tautulli.URL, secret, "", "")
-	setIntegrationConfigValues(t, root, map[string]any{
-		"ExcludedEmails": []string{"PRIVATE-ADMIN@example.org", "unmatched-legacy@example.org"},
-	})
-	view := ReadConfigEditor(root)
-	result, err := DiscoverTautulliChoices(context.Background(), root, TautulliDiscoveryRequest{
-		ExpectedRevision:   view.Revision,
-		ConfirmRealNetwork: true,
-	}, func() time.Time { return time.Date(2031, 4, 18, 16, 30, 0, 0, time.UTC) })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Libraries) != 2 || result.Libraries[0].ID != "10" || len(result.Users) != 4 {
-		t.Fatalf("unexpected discovery result: %+v", result)
-	}
-	if result.SuggestedPreviewUserID != "" || result.Users[0].Role != "administrator" {
-		t.Fatalf("legacy-excluded administrator was suggested for preview: %+v", result)
-	}
-	if result.Users[0].Eligibility != "eligible" || result.Users[1].Eligibility != "unknown" || result.Users[1].ID != "1234567890123456789" || result.Users[2].Eligibility != "address-needed" || !result.Users[2].NeedsDeliveryAddress || result.Users[3].Eligibility != "skipped" || result.Users[3].NeedsDeliveryAddress {
-		t.Fatalf("unexpected eligibility normalization: %+v", result.Users)
-	}
-	if result.LegacyRuleCount != 2 || result.MatchedLegacyRuleCount != 1 || !result.Users[0].LegacyRuleExcluded || result.Users[1].LegacyRuleExcluded || result.Users[2].LegacyRuleExcluded || result.Users[3].LegacyRuleExcluded {
-		t.Fatalf("legacy rules were not matched without disclosure: %+v", result)
-	}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, private := range []string{secret, "private-admin@example.org", "private-viewer@example.org", "unmatched-legacy@example.org", tautulli.URL} {
-		if strings.Contains(string(encoded), private) {
-			t.Fatalf("discovery response returned private value %q", private)
-		}
-	}
-}
-
-func TestTautulliDiscoveryFallsBackToTableBackedLibrariesAndUsers(t *testing.T) {
-	const secret = "fictional-table-fallback-secret"
-	commands := map[string]int{}
-	tautulli := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v2" || r.URL.Query().Get("apikey") != secret {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		command := r.URL.Query().Get("cmd")
-		commands[command]++
-		var result = "success"
-		var data any
-		switch command {
-		case "get_libraries":
-			// Tautulli's live PMS-backed command can answer successfully with no
-			// current data while its local table still contains usable choices.
-			data = nil
-		case "get_libraries_table":
-			data = map[string]any{"data": []any{
-				map[string]any{"section_id": 10, "section_name": "Fictional Movies", "section_type": "Movie", "is_active": "1", "count": 34},
-				map[string]any{"section_id": 20, "section_name": "Fictional Shows", "section_type": "Show", "is_active": true, "count": "12"},
-			}}
-		case "get_user_names":
-			result = "error"
-			data = map[string]any{"private": "must-not-escape"}
-		case "get_users":
-			data = nil
-		case "get_users_table":
-			data = map[string]any{"data": []any{
-				map[string]any{"user_id": 1, "friendly_name": "Fictional Owner", "email": "private-owner@example.org", "is_active": "1", "is_owner": true},
-				map[string]any{"user_id": "2", "friendly_name": "Fictional Viewer", "email": "private-viewer@example.org", "is_active": 1},
-			}}
-		default:
-			http.Error(w, "unsupported", http.StatusBadRequest)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"result": result, "data": data}})
-	}))
-	defer tautulli.Close()
-
-	root := integrationConfigRoot(t, tautulli.URL, secret, "", "")
-	view := ReadConfigEditor(root)
-	result, err := DiscoverTautulliChoices(context.Background(), root, TautulliDiscoveryRequest{
-		ExpectedRevision:   view.Revision,
-		ConfirmRealNetwork: true,
-	}, func() time.Time { return time.Date(2031, 4, 18, 16, 30, 0, 0, time.UTC) })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Libraries) != 2 || result.Libraries[0].ID != "10" || len(result.Users) != 2 {
-		t.Fatalf("unexpected table-backed discovery result: %+v", result)
-	}
-	if result.PrimaryRecipientCount != nil {
-		t.Fatal("table fallback claimed a complete production recipient count")
-	}
-	if result.SuggestedPreviewUserID != "1" || result.Users[0].Role != "owner" || result.Users[0].Eligibility != "eligible" {
-		t.Fatalf("table-backed user details were not normalized safely: %+v", result.Users)
-	}
-	for _, command := range []string{"get_libraries", "get_libraries_table", "get_user_names", "get_users", "get_users_table"} {
-		if commands[command] != 1 {
-			t.Fatalf("command %s calls: got %d, want 1", command, commands[command])
-		}
-	}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, private := range []string{secret, tautulli.URL, "private-owner@example.org", "private-viewer@example.org", "must-not-escape"} {
-		if strings.Contains(string(encoded), private) {
-			t.Fatalf("table-backed discovery returned private value %q", private)
-		}
-	}
-}
-
-func TestTautulliDiscoveryReportsSanitizedUserStageAfterFallbacks(t *testing.T) {
-	const secret = "fictional-user-stage-secret"
-	tautulli := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v2" || r.URL.Query().Get("apikey") != secret {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		var result = "success"
-		var data any
-		switch r.URL.Query().Get("cmd") {
-		case "get_libraries":
-			data = []any{map[string]any{"section_id": 10, "section_name": "Fictional Movies", "section_type": "movie", "is_active": true}}
-		case "get_user_names", "get_users", "get_users_table":
-			result = "error"
-			data = map[string]any{"private": "must-not-escape"}
-		default:
-			http.Error(w, "unsupported", http.StatusBadRequest)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"result": result, "data": data}})
-	}))
-	defer tautulli.Close()
-
-	root := integrationConfigRoot(t, tautulli.URL, secret, "", "")
-	view := ReadConfigEditor(root)
-	_, err := DiscoverTautulliChoices(context.Background(), root, TautulliDiscoveryRequest{
-		ExpectedRevision:   view.Revision,
-		ConfirmRealNetwork: true,
-	}, time.Now)
-	if err == nil || tautulliDiscoveryFailureStage(err) != "users" {
-		t.Fatalf("user fallback failure stage: got %v", err)
-	}
-	for _, private := range []string{secret, tautulli.URL, "must-not-escape"} {
-		if strings.Contains(err.Error(), private) {
-			t.Fatalf("user fallback failure returned private value %q: %v", private, err)
-		}
 	}
 }
 
@@ -684,6 +411,9 @@ func integrationConfigRoot(t *testing.T, tautulliURL, tautulliSecret, plexURL, p
 		"ApiKey":                tautulliSecret,
 		"PlexServerUrl":         plexURL,
 		"PlexToken":             plexSecret,
+		"MediaServer":           "silo",
+		"SiloUrl":               tautulliURL,
+		"SiloApiKey":            tautulliSecret,
 		"FromEmail":             "newsletter@example.org",
 		"ReplyToEmail":          "newsletter@example.org",
 		"TestEmail":             "admin@example.org",

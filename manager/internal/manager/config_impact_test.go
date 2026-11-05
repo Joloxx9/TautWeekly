@@ -20,10 +20,10 @@ func TestEveryConfigFieldHasExplicitSaveImpact(t *testing.T) {
 		warmCache   bool
 	}
 	expected := map[string]impact{
-		"TautulliUrl":                   {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
-		"ApiKey":                        {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
-		"PlexServerUrl":                 {category: "plex", integration: true, preview: true, warmCache: true},
-		"PlexToken":                     {category: "plex", integration: true, preview: true, warmCache: true},
+		"SiloUrl":                       {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
+		"SiloApiKey":                    {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
+		"SiloCatalogApiKey":             {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
+		"SiloProfileId":                 {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
 		"PlexWebUrl":                    {category: "identity", preview: true},
 		"PlexButtonLabel":               {category: "identity", preview: true},
 		"ServerLabel":                   {category: "identity", preview: true},
@@ -105,17 +105,9 @@ func TestConfigPostSavePlanInvalidatesOnlyAffectedCategories(t *testing.T) {
 		{
 			name: "Tautulli connection",
 			mutate: func(request *ConfigSaveRequest) {
-				request.Values["TautulliUrl"] = json.RawMessage(`"http://127.0.0.1:8282"`)
+				request.Values["SiloUrl"] = json.RawMessage(`"http://127.0.0.1:8282"`)
 			},
 			want: ConfigPostSavePlan{MaterialChange: true, RunDiscovery: true, RunIntegration: true, GeneratePreviews: true, WarmCache: true},
-		},
-		{
-			name: "Plex connection",
-			mutate: func(request *ConfigSaveRequest) {
-				request.Values["PlexServerUrl"] = json.RawMessage(`"http://127.0.0.1:32401"`)
-				request.Secrets["PlexToken"] = SecretChange{Action: "replace", Value: "synthetic-new-plex-token"}
-			},
-			want: ConfigPostSavePlan{MaterialChange: true, RunIntegration: true, GeneratePreviews: true, WarmCache: true},
 		},
 		{
 			name: "SMTP connection",
@@ -311,16 +303,9 @@ func TestSavedConnectionCategoriesInvalidateOnlyRelevantEvidence(t *testing.T) {
 		{
 			name: "Tautulli invalidates discovery and integration",
 			mutate: func(request *ConfigSaveRequest) {
-				request.Values["TautulliUrl"] = json.RawMessage(`"http://127.0.0.1:8282"`)
+				request.Values["SiloUrl"] = json.RawMessage(`"http://127.0.0.1:8282"`)
 			},
 			wantSMTP: true, wantPreviewState: "waiting", wantChoicesState: "waiting", wantLANState: "waiting", wantSMTPState: "passed", wantCacheState: "running",
-		},
-		{
-			name: "Plex invalidates integration only",
-			mutate: func(request *ConfigSaveRequest) {
-				request.Values["PlexServerUrl"] = json.RawMessage(`"http://127.0.0.1:32401"`)
-			},
-			wantDiscovery: true, wantSMTP: true, wantPreviewState: "waiting", wantChoicesState: "passed", wantLANState: "waiting", wantSMTPState: "passed", wantCacheState: "running",
 		},
 		{
 			name: "SMTP invalidates SMTP only",

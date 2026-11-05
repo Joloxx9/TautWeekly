@@ -1,11 +1,8 @@
 package manager
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -39,43 +36,6 @@ func TestDiscoveryExcludesReservedLocalAcrossRosterSources(t *testing.T) {
 	}
 	if discoveryID("0") != "0" {
 		t.Fatal("user filtering changed the independent library ID contract")
-	}
-}
-
-func TestDiscoveryLocalOnlyRosterIsValidAndEmpty(t *testing.T) {
-	for _, tableFallback := range []bool{false, true} {
-		name := "bulk roster"
-		if tableFallback {
-			name = "table fallback"
-		}
-		t.Run(name, func(t *testing.T) {
-			tautulli := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				var data any
-				local := []any{map[string]any{"user_id": 0, "friendly_name": "Local", "is_active": 1}}
-				switch r.URL.Query().Get("cmd") {
-				case "get_libraries":
-					data = []any{map[string]any{"section_id": 10, "section_name": "Movies", "section_type": "movie", "is_active": 1}}
-				case "get_users", "get_user_names":
-					data = local
-					if tableFallback {
-						data = []any{}
-					}
-				case "get_users_table":
-					data = map[string]any{"data": local}
-				default:
-					t.Errorf("unexpected command: %s", r.URL.Query().Get("cmd"))
-				}
-				_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"result": "success", "data": data}})
-			}))
-			defer tautulli.Close()
-			root := integrationConfigRoot(t, tautulli.URL, "fictional-api-key", "", "")
-			result, err := DiscoverTautulliChoices(context.Background(), root, TautulliDiscoveryRequest{
-				ExpectedRevision: ReadConfigEditor(root).Revision, ConfirmRealNetwork: true,
-			}, time.Now)
-			if err != nil || len(result.Users) != 0 || result.Users == nil || result.SuggestedPreviewUserID != "" || len(result.Libraries) != 1 {
-				t.Fatalf("Local-only roster should be valid empty discovery: result=%+v err=%v", result, err)
-			}
-		})
 	}
 }
 

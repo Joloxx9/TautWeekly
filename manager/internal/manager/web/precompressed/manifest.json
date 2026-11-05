@@ -16,17 +16,17 @@
       }
     },
     "app.js": {
-      "sha256": "c4ce588621f749d0930bde77c9112a1386114086240882bad683c732186ff930",
-      "bytes": 261556,
+      "sha256": "beb01c643dfbc9e0030da2ea1651084c1b589b25ea1c42d0a5863a791c293b26",
+      "bytes": 261320,
       "gzip": {
         "file": "precompressed/app.js.gz",
-        "bytes": 56782,
-        "sha256": "4aa3a581116510e71554cce9c0d6592829b029d01b24d341089729d1abee32b9"
+        "bytes": 56763,
+        "sha256": "ad6d4c5ca99429afbea81b3e1803c3b716043564a6fd1539a0e50474448f989a"
       },
       "br": {
         "file": "precompressed/app.js.br",
-        "bytes": 46157,
-        "sha256": "c4948042e1ddcd9a36384842799fbe9120bd9078519a9080cd178a9c5694c3d1"
+        "bytes": 46162,
+        "sha256": "64d55f38e7d16060be081475d6cef15e84c13b59396ec154477ee11291359f1b"
       }
     },
     "favicon.ico": {

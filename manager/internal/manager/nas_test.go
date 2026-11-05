@@ -182,8 +182,8 @@ func TestMacCapabilitiesRequireAuthenticationAndDescribeDockerDesktop(t *testing
 	}
 	cookie := &http.Cookie{Name: sessionCookieName, Value: current.Token}
 	editorResponse := requestForTest(server, http.MethodGet, "/api/v1/config/editor", nil, cookie)
-	if editorResponse.Code != http.StatusOK || !strings.Contains(editorResponse.Body.String(), `"value":"http://host.docker.internal:8181"`) ||
-		!strings.Contains(editorResponse.Body.String(), `"placeholder":"http://host.docker.internal:8181"`) {
+	if editorResponse.Code != http.StatusOK || !strings.Contains(editorResponse.Body.String(), `"value":"http://host.docker.internal:8080"`) ||
+		!strings.Contains(editorResponse.Body.String(), `"placeholder":"http://host.docker.internal:8080"`) {
 		t.Fatalf("macOS first-run editor did not use the Docker Desktop host address: status=%d body=%s", editorResponse.Code, editorResponse.Body.String())
 	}
 	for _, host := range []string{"127.0.0.1:8787", "192.0.2.55:8787", "weekly.mac.example:8787"} {

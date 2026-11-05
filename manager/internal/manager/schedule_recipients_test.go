@@ -1,14 +1,10 @@
 package manager
 
 import (
-	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestSchedulePrimaryRecipientPolicy(t *testing.T) {
@@ -78,44 +74,6 @@ func TestScheduleRecipientEvidencePersistenceAndInvalidation(t *testing.T) {
 	}
 	if got := store.Load(revision); got == nil || got.PrimaryRecipientCount != nil {
 		t.Fatal("legacy cache synthesized recipient count")
-	}
-}
-
-func TestDiscoveryReturnsOnlyAggregatePrimaryEvidence(t *testing.T) {
-	requests := 0
-	tautulli := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests++
-		var data any
-		switch r.URL.Query().Get("cmd") {
-		case "get_libraries":
-			data = []any{map[string]any{"section_id": "1", "section_name": "Movies", "section_type": "movie", "is_active": 1}}
-		case "get_user_names":
-			data = []any{map[string]any{"user_id": "1", "friendly_name": "Viewer"}}
-		case "get_users":
-			data = []any{map[string]any{"user_id": "1", "friendly_name": "Viewer", "email": "private@example.org", "is_active": 1, "deleted_user": 0, "do_notify": 0}}
-		default:
-			t.Errorf("unexpected added lookup %s", r.URL.Query().Get("cmd"))
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"response": map[string]any{"result": "success", "data": data}})
-	}))
-	defer tautulli.Close()
-	root := integrationConfigRoot(t, tautulli.URL, "fictional-aggregate-secret", "", "")
-	view := ReadConfigEditor(root)
-	result, err := DiscoverTautulliChoices(context.Background(), root, TautulliDiscoveryRequest{ExpectedRevision: view.Revision, ConfirmRealNetwork: true}, time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.PrimaryRecipientCount == nil || *result.PrimaryRecipientCount != 1 || requests != 3 {
-		t.Fatalf("aggregate or bounded request contract: %+v, %d", result, requests)
-	}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, private := range []string{"private@example.org", "fictional-aggregate-secret", tautulli.URL} {
-		if strings.Contains(string(encoded), private) {
-			t.Fatal("private lookup input escaped in evidence")
-		}
 	}
 }
 

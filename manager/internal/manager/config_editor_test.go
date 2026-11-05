@@ -17,12 +17,12 @@ func TestReadConfigEditorUsesSafeDefaultsWithoutSecrets(t *testing.T) {
 	if view.Exists || !view.Valid || view.State != "unconfigured" || view.Revision != missingConfigRevision {
 		t.Fatalf("unexpected editor state: %+v", view)
 	}
-	for _, name := range []string{"ApiKey", "FromEmail", "SmtpHost", "SmtpPassword", "TestEmail"} {
+	for _, name := range []string{"SiloApiKey", "FromEmail", "SmtpHost", "SmtpPassword", "TestEmail"} {
 		if view.Issues[name] == "" {
 			t.Fatalf("missing setup issue for %s: %v", name, view.Issues)
 		}
 	}
-	apiKey := editorField(t, view, "ApiKey")
+	apiKey := editorField(t, view, "SiloApiKey")
 	if apiKey.Secret == nil || apiKey.Secret.Configured || apiKey.Value != nil {
 		t.Fatalf("unexpected API key editor field: %+v", apiKey)
 	}
@@ -34,11 +34,11 @@ func TestReadConfigEditorUsesSafeDefaultsWithoutSecrets(t *testing.T) {
 		t.Fatalf("unexpected managed-user delivery default: %#v", editorField(t, view, "UserEmailOverrides").Value)
 	}
 	plexURL := editorField(t, view, "PlexWebUrl")
-	if plexURL.Label != "Open Plex button URL or custom link" || plexURL.Value != "https://app.plex.tv/desktop/" {
+	if plexURL.Label != "Open Silo button URL or custom link" || plexURL.Value != "" {
 		t.Fatalf("unexpected custom-link field: %+v", plexURL)
 	}
 	buttonLabel := editorField(t, view, "PlexButtonLabel")
-	if buttonLabel.Label != "Button label" || buttonLabel.Value != "Open Plex" || buttonLabel.Max == nil || *buttonLabel.Max != 64 {
+	if buttonLabel.Label != "Button label" || buttonLabel.Value != "Open Silo" || buttonLabel.Max == nil || *buttonLabel.Max != 64 {
 		t.Fatalf("unexpected button-label default: %+v", buttonLabel)
 	}
 	customEnabled := editorField(t, view, "CustomTextCardEnabled")
@@ -66,7 +66,7 @@ func TestReadConfigEditorUsesSafeDefaultsWithoutSecrets(t *testing.T) {
 
 func TestReadConfigEditorNeverReturnsStoredSecrets(t *testing.T) {
 	root := t.TempDir()
-	config := `{"ApiKey":"editor-api-secret","PlexToken":"editor-plex-secret","SmtpAppPassword":"editor-smtp-secret"}`
+	config := `{"SiloApiKey":"editor-api-secret","PlexToken":"editor-plex-secret","SmtpAppPassword":"editor-smtp-secret"}`
 	if err := os.WriteFile(filepath.Join(root, "config.json"), []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestReadConfigEditorNeverReturnsStoredSecrets(t *testing.T) {
 			t.Fatalf("editor response returned %q", secret)
 		}
 	}
-	for _, name := range []string{"ApiKey", "PlexToken", "SmtpPassword"} {
+	for _, name := range []string{"SiloApiKey", "SmtpPassword"} {
 		field := editorField(t, view, name)
 		if field.Secret == nil || !field.Secret.Configured {
 			t.Fatalf("%s was not reported as configured", name)
@@ -88,65 +88,14 @@ func TestReadConfigEditorNeverReturnsStoredSecrets(t *testing.T) {
 	}
 }
 
-func TestLegacyDirectPlexFieldsAreExplainedAndNormalizedWithoutCopyingRuntimeToken(t *testing.T) {
-	root := integrationConfigRoot(t, "http://127.0.0.1:8181", "fictional-api-key", "", "")
-	path := filepath.Join(root, "config.json")
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	values := map[string]any{}
-	if err := json.Unmarshal(raw, &values); err != nil {
-		t.Fatal(err)
-	}
-	delete(values, "PlexServerUrl")
-	delete(values, "PlexToken")
-	raw, _ = json.Marshal(values)
-	if err := os.WriteFile(path, raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PLEX_TOKEN", "fictional-runtime-only-token")
-
-	view := ReadConfigEditor(root)
-	if !view.DirectPlex.LegacyFieldsMissing || view.DirectPlex.URLConfigured || view.DirectPlex.TokenConfigured || !view.DirectPlex.RuntimeTokenAvailable {
-		t.Fatalf("unexpected legacy direct Plex status: %+v", view.DirectPlex)
-	}
-	plexTokenField := editorField(t, view, "PlexToken")
-	if plexTokenField.Secret == nil || plexTokenField.Secret.Configured || !plexTokenField.Secret.AvailableFromRuntime {
-		t.Fatalf("runtime Plex token status was not redacted correctly: %+v", plexTokenField)
-	}
-
-	request := validConfigSaveRequest(t, view)
-	result, fieldErrors, err := SaveConfig(root, request, time.Now)
-	if err != nil || len(fieldErrors) != 0 || !result.Saved {
-		t.Fatalf("normalize legacy config: result=%+v fields=%v err=%v", result, fieldErrors, err)
-	}
-	if result.Editor.DirectPlex.LegacyFieldsMissing {
-		t.Fatalf("legacy direct Plex fields remained absent after save: %+v", result.Editor.DirectPlex)
-	}
-	raw, err = os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(raw), "fictional-runtime-only-token") {
-		t.Fatal("runtime Plex token was copied into config.json")
-	}
-	if !strings.Contains(string(raw), `"PlexServerUrl": ""`) || !strings.Contains(string(raw), `"PlexToken": ""`) {
-		t.Fatalf("normalized direct Plex fields are missing: %s", raw)
-	}
-	if !strings.Contains(string(raw), `"PlexButtonLabel": "Open Plex"`) {
-		t.Fatalf("default button label was not added to the legacy config: %s", raw)
-	}
-}
-
 func TestReadConfigSecretReturnsOnlyRequestedValueWithCurrentRevision(t *testing.T) {
 	root := t.TempDir()
-	config := `{"ApiKey":"requested-api-secret","PlexToken":"other-plex-secret","SmtpAppPassword":"legacy-smtp-secret"}`
+	config := `{"SiloApiKey":"requested-api-secret","PlexToken":"other-plex-secret","SmtpAppPassword":"legacy-smtp-secret"}`
 	if err := os.WriteFile(filepath.Join(root, "config.json"), []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	view := ReadConfigEditor(root)
-	value, err := ReadConfigSecret(root, "ApiKey", view.Revision)
+	value, err := ReadConfigSecret(root, "SiloApiKey", view.Revision)
 	if err != nil || value != "requested-api-secret" {
 		t.Fatalf("read API secret: value=%q err=%v", value, err)
 	}
@@ -157,7 +106,7 @@ func TestReadConfigSecretReturnsOnlyRequestedValueWithCurrentRevision(t *testing
 	if _, err := ReadConfigSecret(root, "FromEmail", view.Revision); !errors.Is(err, ErrConfigSecretUnsupported) {
 		t.Fatalf("non-secret field reveal: got %v", err)
 	}
-	if _, err := ReadConfigSecret(root, "ApiKey", "stale"); !errors.Is(err, ErrConfigConflict) {
+	if _, err := ReadConfigSecret(root, "SiloApiKey", "stale"); !errors.Is(err, ErrConfigConflict) {
 		t.Fatalf("stale secret reveal: got %v", err)
 	}
 }
@@ -166,7 +115,7 @@ func TestEditorHidesLegacyEmailExclusionsAndPreservesThemOnSave(t *testing.T) {
 	root := t.TempDir()
 	view := ReadConfigEditor(root)
 	request := validConfigSaveRequest(t, view)
-	request.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
+	request.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
 	request.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "fictional-smtp-password"}
 	_, fieldErrors, err := SaveConfig(root, request, time.Now)
 	if err != nil || len(fieldErrors) != 0 {
@@ -293,7 +242,7 @@ func TestSaveConfigCreatesAndUpdatesWithBackup(t *testing.T) {
 	now := func() time.Time { return time.Date(2031, 4, 18, 16, 30, 0, 0, time.UTC) }
 	view := ReadConfigEditor(root)
 	request := validConfigSaveRequest(t, view)
-	request.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
+	request.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
 	request.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "fictional-smtp-password"}
 
 	created, fieldErrors, err := SaveConfig(root, request, now)
@@ -320,7 +269,7 @@ func TestSaveConfigCreatesAndUpdatesWithBackup(t *testing.T) {
 	}
 
 	update := validConfigSaveRequest(t, created.Editor)
-	update.Secrets["ApiKey"] = SecretChange{Action: "preserve"}
+	update.Secrets["SiloApiKey"] = SecretChange{Action: "preserve"}
 	update.Secrets["SmtpPassword"] = SecretChange{Action: "preserve"}
 	update.Values["FooterServerName"] = json.RawMessage(`"Fictional Home"`)
 	updated, fieldErrors, err := SaveConfig(root, update, now)
@@ -348,14 +297,14 @@ func TestSaveConfigValidationAndRevisionConflict(t *testing.T) {
 	root := t.TempDir()
 	view := ReadConfigEditor(root)
 	request := validConfigSaveRequest(t, view)
-	request.Secrets["ApiKey"] = SecretChange{Action: "clear"}
+	request.Secrets["SiloApiKey"] = SecretChange{Action: "clear"}
 	request.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "fictional-password"}
 	request.Values["SmtpPort"] = json.RawMessage(`465`)
 	_, fieldErrors, err := SaveConfig(root, request, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fieldErrors["ApiKey"] == "" || fieldErrors["SmtpPort"] == "" {
+	if fieldErrors["SiloApiKey"] == "" || fieldErrors["SmtpPort"] == "" {
 		t.Fatalf("expected API key and SMTP port errors, got %v", fieldErrors)
 	}
 
@@ -390,7 +339,7 @@ func TestCustomTextCardValidationIsConditionalAndPlainTextOnly(t *testing.T) {
 	root := t.TempDir()
 	view := ReadConfigEditor(root)
 	request := validConfigSaveRequest(t, view)
-	request.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
+	request.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
 	request.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "fictional-smtp-password"}
 	request.Values["CustomTextCardEnabled"] = json.RawMessage(`true`)
 	request.Values["CustomTextCardBody"] = json.RawMessage(`""`)
@@ -439,7 +388,7 @@ func TestCustomTextCardDisablePreservesSavedContent(t *testing.T) {
 	root := t.TempDir()
 	view := ReadConfigEditor(root)
 	request := validConfigSaveRequest(t, view)
-	request.Secrets["ApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
+	request.Secrets["SiloApiKey"] = SecretChange{Action: "replace", Value: "fictional-api-key"}
 	request.Secrets["SmtpPassword"] = SecretChange{Action: "replace", Value: "fictional-smtp-password"}
 	request.Values["CustomTextCardEnabled"] = json.RawMessage(`true`)
 	request.Values["CustomTextCardBorderColor"] = json.RawMessage(`"#123abc"`)
@@ -530,6 +479,10 @@ func validConfigSaveRequest(t *testing.T, view ConfigEditorView) ConfigSaveReque
 		}
 		value := field.Value
 		switch field.Name {
+		case "SiloUrl":
+			if text, _ := value.(string); text == "" {
+				value = "http://127.0.0.1:8090"
+			}
 		case "FromEmail", "ReplyToEmail":
 			value = "newsletter@example.org"
 		case "TestEmail":
