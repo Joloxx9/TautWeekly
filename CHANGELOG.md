@@ -6,6 +6,10 @@ the structure of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Read a [Silo](https://siloserver.org) media server through its native `/api/v2` contract when `MediaServer` is `silo`. Newsletters use Silo accounts and emails, the finalized playback log, first-seen catalog additions, and Silo's IMDb, TMDB, and Rotten Tomatoes ratings. Posters, backdrops, and logos are re-encoded from WebP for email. Child profiles are left out of statistics by default. Rate-limited reads honor `Retry-After`. The Manager keeps the Silo keys secret and accepts Silo configurations without a Tautulli key.
+
 ## [0.27.3] - 2026-10-29
 
 ### Changed

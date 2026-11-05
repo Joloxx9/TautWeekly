@@ -13,10 +13,12 @@ import (
 )
 
 var secretConfigKeys = map[string]struct{}{
-	"apikey":          {},
-	"plextoken":       {},
-	"smtppassword":    {},
-	"smtpapppassword": {},
+	"apikey":            {},
+	"plextoken":         {},
+	"smtppassword":      {},
+	"smtpapppassword":   {},
+	"siloapikey":        {},
+	"silocatalogapikey": {},
 }
 
 var privateConfigKeys = map[string]struct{}{

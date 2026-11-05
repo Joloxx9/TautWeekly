@@ -55,6 +55,9 @@ foreach ($relativePath in $rendererPaths) {
         throw "Cannot test Binge Champion with parser errors: $relativePath"
     }
 
+    # Extracted renderer functions consult the media-server provider that the
+    # renderer dot-sources beside itself; load it so they keep Tautulli mode.
+    . (Join-Path (Split-Path -Parent $path) 'Silo-Provider.ps1')
     foreach ($functionName in $requiredFunctions) {
         $definition = $ast.FindAll({
             param($node)

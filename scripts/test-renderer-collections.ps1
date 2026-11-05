@@ -138,6 +138,9 @@ foreach ($relativePath in $rendererPaths) {
     Assert-True ($rendererSource.Contains('Invoke-TautulliApi -Command "get_libraries"')) "$relativePath does not enumerate real movie/TV libraries for quiet-week fallback"
     Assert-True (([regex]::Matches($rendererSource, 'Get-NewsletterLastPlatform -ExpectedUserId \$user\.UserId')).Count -eq 3) "$relativePath does not apply Last Platform to manual, preview/test, and standard recipient paths"
 
+    # Extracted renderer functions consult the media-server provider that the
+    # renderer dot-sources beside itself; load it so they keep Tautulli mode.
+    . (Join-Path (Split-Path -Parent $path) 'Silo-Provider.ps1')
     foreach ($functionName in $requiredFunctions) {
         $definition = $ast.FindAll({
             param($node)

@@ -252,6 +252,12 @@ jobs:
     if: needs.provenance.outputs.full_validation == 'true' && needs.classify.outputs.renderer == 'true'
     steps:
       - uses: actions/checkout@v6
+      - name: Install the ImageMagick converter used for Silo artwork
+        run: |
+          if ! command -v magick >/dev/null 2>&1 && ! command -v convert >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends imagemagick
+          fi
       - name: Test cross-platform renderer, cache, recipient, and SMTP contracts
         shell: pwsh
         run: |
@@ -261,6 +267,7 @@ jobs:
           ./scripts/test-deleted-item-cache.ps1
           ./scripts/test-cache-diagnostics.ps1
           ./scripts/test-sendall-recipient-policy.ps1 -PythonPath python3
+          ./scripts/test-silo-provider.ps1 -PythonPath python3
       - name: Test SMTP authentication protocol on PowerShell 7
         run: python3 scripts/test-smtp-transport.py --helper platforms/nas-docker/app/Smtp-Transport.ps1
 
@@ -285,6 +292,7 @@ jobs:
           .\scripts\test-library-selection.ps1
           .\scripts\test-newsletter-integration.ps1
           .\scripts\test-sendall-recipient-policy.ps1
+          .\scripts\test-silo-provider.ps1
       - name: Test SMTP authentication protocol on Windows PowerShell
         run: python scripts/test-smtp-transport.py --helper platforms/windows/Smtp-Transport.ps1
 

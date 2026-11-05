@@ -238,6 +238,10 @@ done
 
 docker exec "$container_name" /opt/tautweekly/bin/run-as-user.sh pwsh -NoLogo -NoProfile -NonInteractive -Command \
   'if ($PSVersionTable.PSVersion -lt [Version]"7.2") { exit 1 }' || fail 'PowerShell 7.2+ is unavailable in the runtime image.'
+# Silo publishes artwork as WebP; the image's ImageMagick must decode it so
+# posters, backdrops, and logos can be re-encoded for email clients.
+docker exec "$container_name" sh -c 'convert -list format 2>/dev/null | grep -Eiq "^[[:space:]]*WEBP\*?[[:space:]]+[A-Z]*[[:space:]]+r"' \
+  || fail 'ImageMagick in the runtime image cannot read WebP artwork for the Silo provider.'
 docker exec "$container_name" test -s /data/.tautweekly-asset-bundle || fail 'Asset migration marker is missing.'
 for name in movies.gif watched.png; do
   docker exec "$container_name" cmp "/opt/tautweekly/assets-default/$name" "/data/assets/$name" || fail "Stock asset was not refreshed: $name"

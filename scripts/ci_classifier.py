@@ -56,6 +56,8 @@ RENDERER_TEST_MARKERS = (
     "recipient-watched",
     "renderer-collection",
     "sendall-recipient",
+    "silo-provider",
+    "fake-silo",
     "smtp-transport",
     "smtp-streaming",
     "top-movie-genre",
@@ -66,6 +68,7 @@ RENDERER_RUNTIME_NAMES = {
     "cache-diagnostics.ps1",
     "deleteditemcache.ps1",
     "operation-lock.ps1",
+    "silo-provider.ps1",
     "smtp-transport.ps1",
     "tautweekly.ps1",
 }
