@@ -142,9 +142,7 @@ func configDefinitions() []configDefinition {
 	delayMin, delayMax := integerBounds(0, 3600)
 	return []configDefinition{
 		{Name: "SiloUrl", Label: "Silo server URL", Group: "Connections", Type: "url", Required: true, Help: "Base URL of your Silo server reachable from this Manager runtime, such as http://192.168.1.10:8080. Verification runs after a successful save and is restricted to private or loopback destinations.", Placeholder: "http://192.168.1.10:8080", Default: ""},
-		{Name: "SiloApiKey", Label: "Silo monitoring API key", Group: "Connections", Type: "secret", Required: true, Help: "Key owned by a Silo administrator with the admin:monitor:read scope; it reads accounts, playback history, and the catalog. Leave blank to preserve the stored key."},
-		{Name: "SiloCatalogApiKey", Label: "Silo catalog API key", Group: "Connections", Type: "secret", Help: "Recommended: an unscoped key from an ordinary (non-administrator) Silo account that sees your libraries. Used for ratings, artwork, and library names. Empty uses the monitoring key."},
-		{Name: "SiloProfileId", Label: "Silo catalog profile ID", Group: "Connections", Type: "text", Help: "Optional. Leave empty to use the catalog key account's primary profile.", Default: ""},
+		{Name: "SiloApiKey", Label: "Silo API key", Group: "Connections", Type: "secret", Required: true, Help: "An unscoped API key owned by a Silo administrator. It reads accounts, playback history, the catalog, ratings, and artwork. Leave blank to preserve the stored key."},
 		{Name: "PlexWebUrl", Label: "Open Silo button URL or custom link", Group: "Identity", Type: "url", Help: "Leave empty to link to the Silo server URL.", Default: ""},
 		{Name: "PlexButtonLabel", Label: "Button label", Group: "Identity", Type: "text", Required: true, Default: "Open Silo", Max: buttonLabelMax},
 		{Name: "ServerLabel", Label: "Header label", Group: "Identity", Type: "text", Required: true, Default: "SILO"},
@@ -284,6 +282,8 @@ func SaveConfig(root string, request ConfigSaveRequest, now func() time.Time) (C
 
 	next := cloneConfigMap(current)
 	next["MediaServer"] = "silo"
+	// One Silo key serves every read; drop any older second catalog key.
+	delete(next, "SiloCatalogApiKey")
 	for name, definition := range knownValues {
 		rawValue, ok := request.Values[name]
 		if !ok {
@@ -848,7 +848,7 @@ func validateConfigRelationships(values map[string]any, fieldErrors map[string]s
 	// provider (MediaServer, SiloUrl, SiloApiKey in config.json); it has no
 	// Tautulli key. The renderer validates the Silo fields itself.
 	if !secretConfigured(values, "SiloApiKey") {
-		fieldErrors["SiloApiKey"] = "A Silo monitoring API key is required."
+		fieldErrors["SiloApiKey"] = "A Silo API key is required."
 	}
 	if profile := strings.TrimSpace(fmt.Sprint(values["SiloProfileId"])); profile != "" && profile != "<nil>" && !validSiloProfileID(profile) {
 		fieldErrors["SiloProfileId"] = "Use the profile identifier Silo reports (letters, digits, and dashes)."

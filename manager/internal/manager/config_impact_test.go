@@ -22,8 +22,6 @@ func TestEveryConfigFieldHasExplicitSaveImpact(t *testing.T) {
 	expected := map[string]impact{
 		"SiloUrl":                       {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
 		"SiloApiKey":                    {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
-		"SiloCatalogApiKey":             {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
-		"SiloProfileId":                 {category: "tautulli", discovery: true, integration: true, preview: true, warmCache: true},
 		"PlexWebUrl":                    {category: "identity", preview: true},
 		"PlexButtonLabel":               {category: "identity", preview: true},
 		"ServerLabel":                   {category: "identity", preview: true},

@@ -32,15 +32,15 @@ func TestRedactedConfigNeverExposesSiloKeys(t *testing.T) {
 	}
 	configured := 0
 	for _, field := range view.Fields {
-		if field.Name == "SiloApiKey" || field.Name == "SiloCatalogApiKey" {
+		if field.Name == "SiloApiKey" {
 			if field.Type != "secret" || field.Secret == nil || !field.Secret.Configured {
 				t.Fatalf("Silo key %s is not reported as a configured secret: %+v", field.Name, field)
 			}
 			configured++
 		}
 	}
-	if configured != 2 {
-		t.Fatalf("expected both Silo keys in the redacted view, found %d", configured)
+	if configured != 1 {
+		t.Fatalf("expected the Silo key in the redacted view, found %d", configured)
 	}
 }
 

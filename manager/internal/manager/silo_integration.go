@@ -243,7 +243,7 @@ func verifySilo(ctx context.Context, client *http.Client, values map[string]any)
 			return failedIntegrationStep("silo", err)
 		}
 		if allowed, ok := capabilities["allowed"].(bool); ok && !allowed {
-			return IntegrationCheckStep{Service: "silo", State: "failed", Summary: "The Silo API key is not allowed to read " + check.label + ". Use a key owned by an administrator with the admin:monitor:read scope."}
+			return IntegrationCheckStep{Service: "silo", State: "failed", Summary: "The Silo API key is not allowed to read " + check.label + ". Use an unscoped key owned by a Silo administrator."}
 		}
 	}
 	users, err := siloAccounts(ctx, client, credentials)
@@ -253,7 +253,12 @@ func verifySilo(ctx context.Context, client *http.Client, values map[string]any)
 	libraries, err := siloLibraries(ctx, client, credentials)
 	if err != nil {
 		step := failedIntegrationStep("silo", err)
-		step.Summary = "Silo monitoring access worked, but the catalog key could not list libraries. " + step.Summary
+		step.Summary = "Silo account access worked, but the key could not list libraries for its profile; use an unscoped administrator key. " + step.Summary
+		return step
+	}
+	if err := siloSampleItemDetail(ctx, client, credentials); err != nil {
+		step := failedIntegrationStep("silo", err)
+		step.Summary = "Silo libraries are readable, but item details (ratings and artwork) are not; use an unscoped administrator key. " + step.Summary
 		return step
 	}
 	selectable := 0
@@ -263,7 +268,7 @@ func verifySilo(ctx context.Context, client *http.Client, values map[string]any)
 		}
 	}
 	if selectable == 0 {
-		return IntegrationCheckStep{Service: "silo", State: "failed", Summary: "Silo authentication worked, but the catalog key sees no movie or TV libraries."}
+		return IntegrationCheckStep{Service: "silo", State: "failed", Summary: "Silo authentication worked, but the key sees no movie or TV libraries."}
 	}
 	return IntegrationCheckStep{Service: "silo", State: "passed", Summary: fmt.Sprintf("Authenticated Silo API v2; %d accounts and %d movie/TV libraries were reported.", len(users), selectable)}
 }
@@ -319,4 +324,26 @@ func siloUserDetail(ctx context.Context, values map[string]any, userID string) (
 		return nil, err
 	}
 	return siloTautulliUser(account), nil
+}
+
+// siloSampleItemDetail proves the key can read one catalog item's detail,
+// which is where ratings and artwork come from.
+func siloSampleItemDetail(ctx context.Context, client *http.Client, credentials siloCredentials) error {
+	var sample siloPage
+	if err := siloGet(ctx, client, credentials.base, credentials.monitorKey, "", "api/v2/admin/catalog/items", url.Values{"limit": {"1"}}, &sample); err != nil {
+		return err
+	}
+	if len(sample.Items) == 0 {
+		return nil
+	}
+	contentID := siloString(sample.Items[0]["content_id"])
+	if contentID == "" {
+		return errIntegrationResponse
+	}
+	profileID, err := siloCatalogProfile(ctx, client, credentials)
+	if err != nil {
+		return err
+	}
+	var detail map[string]any
+	return siloGet(ctx, client, credentials.base, credentials.catalogKey, profileID, "api/v2/catalog/items/"+url.PathEscape(contentID), nil, &detail)
 }

@@ -14,7 +14,6 @@ import (
 
 const (
 	fakeSiloMonitorKey = "sa_fictional_monitor_key"
-	fakeSiloCatalogKey = "sa_fictional_catalog_key"
 	fakeSiloProfileID  = "c0ffee00-0000-4000-8000-000000000001"
 )
 
@@ -46,7 +45,7 @@ func newFakeSilo(t *testing.T) *fakeSilo {
 		}
 		auth := r.Header.Get("Authorization")
 		monitor := auth == "Bearer "+fakeSiloMonitorKey
-		catalog := auth == "Bearer "+fakeSiloCatalogKey
+		catalog := monitor
 		reply := func(value any) { _ = json.NewEncoder(w).Encode(value) }
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/api/v2/admin/") && !monitor:
@@ -73,6 +72,14 @@ func newFakeSilo(t *testing.T) *fakeSilo {
 			})
 		case r.URL.Path == "/api/v2/admin/users/2":
 			reply(map[string]any{"id": "2", "username": "bob", "email": "bob@example.com", "enabled": true})
+		case r.URL.Path == "/api/v2/admin/catalog/items":
+			reply(map[string]any{"items": []any{map[string]any{"content_id": "movie-tmdb-1001"}}})
+		case r.URL.Path == "/api/v2/catalog/items/movie-tmdb-1001":
+			if !catalog || r.Header.Get("X-Profile-Id") != fakeSiloProfileID {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			reply(map[string]any{"content_id": "movie-tmdb-1001", "title": "Silo Fictional Feature"})
 		case r.URL.Path == "/api/v2/profiles":
 			if !catalog {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -108,7 +115,6 @@ func newFakeSilo(t *testing.T) *fakeSilo {
 func fakeSiloConfigRoot(t *testing.T, fake *fakeSilo) string {
 	t.Helper()
 	root := integrationConfigRoot(t, fake.server.URL, fakeSiloMonitorKey, "", "")
-	setIntegrationConfigValues(t, root, map[string]any{"SiloCatalogApiKey": fakeSiloCatalogKey})
 	return root
 }
 
@@ -124,7 +130,7 @@ func TestSiloIntegrationCheckPassesWithoutReturningSecrets(t *testing.T) {
 		t.Fatalf("unexpected Silo verification: %+v", result)
 	}
 	encoded, _ := json.Marshal(result)
-	for _, private := range []string{fakeSiloMonitorKey, fakeSiloCatalogKey, fake.server.URL, "example.com"} {
+	for _, private := range []string{fakeSiloMonitorKey, fake.server.URL, "example.com"} {
 		if strings.Contains(string(encoded), private) {
 			t.Fatalf("verification evidence leaked %q", private)
 		}
@@ -168,7 +174,7 @@ func TestSiloDiscoveryReturnsSanitizedChoices(t *testing.T) {
 		t.Fatalf("unexpected preview suggestion or recipient count: %+v", result)
 	}
 	encoded, _ := json.Marshal(result)
-	for _, private := range []string{fakeSiloMonitorKey, fakeSiloCatalogKey, fake.server.URL, "example.com"} {
+	for _, private := range []string{fakeSiloMonitorKey, fake.server.URL, "example.com"} {
 		if strings.Contains(string(encoded), private) {
 			t.Fatalf("discovery leaked %q", private)
 		}
