@@ -170,6 +170,54 @@ likewise treats exported image resources as a separate explicit export. Once
 Plex and Tautulli no longer have the asset, TautWeekly cannot reliably recover
 it retroactively.
 
+## Silo media server (preview)
+
+TautWeekly can read a [Silo](https://siloserver.org) media server instead of
+Tautulli and Plex. Silo's native `/api/v2` contract already provides accounts
+with email addresses, a finalized per-attempt playback log, the catalog with
+first-seen times, IMDb/TMDB/Rotten Tomatoes ratings, and artwork, so no Silo
+plugin is needed. TautWeekly only reads from Silo; it never calls the Jellyfin
+compatibility layer or the frozen v1 bridge.
+
+| Key | Required | Purpose |
+|---|---:|---|
+| `MediaServer` | No | `tautulli` (default) or `silo` |
+| `SiloUrl` | With `silo` | Base URL reachable from the TautWeekly runtime, such as `http://silo.example.test:8080`; no credentials, query, or fragment |
+| `SiloApiKey` | With `silo` | Key owned by a Silo administrator with the `admin:monitor:read` scope: accounts, playback history, and the catalog listing. Treat as a secret |
+| `SiloCatalogApiKey` | No; recommended | Unscoped key from an ordinary (non-administrator) Silo account that can see the newsletter libraries. Used only for item detail, ratings, artwork, and library names. Defaults to `SiloApiKey`. Treat as a secret |
+| `SiloProfileId` | No | Profile used for catalog reads; defaults to the catalog key account's primary profile |
+| `SiloIncludeChildProfiles` | No | `false` by default: plays from child profiles are left out of statistics |
+
+Silo has no scope that covers item detail, so the read-only monitoring key
+cannot load ratings and artwork by itself. Using a second key from an ordinary
+account keeps the administrator credential read-only; a single unscoped
+administrator key also works but grants far more than the newsletter needs.
+Give both keys the `elevated` rate tier when Silo answers HTTP 429: TautWeekly
+honors `Retry-After` and retries, but a busy week makes many detail reads.
+
+Recipients are Silo accounts. An account's newsletter combines all of its
+non-child profiles, and the delivery address is the account's email.
+`UserEmailOverrides`, `ExcludedUserIds`, household copies, and
+`IncludedLibraryIds` use Silo account and library IDs. With `MediaServer` set
+to `silo`, `TautulliUrl`, `ApiKey`, `PlexServerUrl`, and `PlexToken` are not
+used; the button defaults to `SiloUrl` and reads `Open Silo`, and the email
+copy names Silo instead of Plex.
+
+Silo publishes artwork as WebP, which Outlook and some other clients cannot
+show, so TautWeekly re-encodes posters and backdrops as JPEG and logos as PNG.
+The container images include ImageMagick with WebP support. Native Linux needs
+ImageMagick installed (for example `sudo apt-get install imagemagick`).
+Windows uses its built-in imaging, which needs the WebP Image Extensions from
+the Microsoft Store, or falls back to an installed ImageMagick. Without a
+converter, the newsletter is still sent but without artwork. `VerifyPlex`
+checks every Silo read and reports when no converter is available.
+
+The Manager keeps the Silo keys secret and accepts a Silo configuration
+without a Tautulli key. Its guided setup, user and library choices, and
+connection checks still target Tautulli, so edit `config.json` for the Silo
+keys and use the package commands (ListUsers, Preview, PreviewAll, SendTest,
+SendAll, VerifyPlex) for Silo checks.
+
 ## Persistent deleted-item cache
 
 | Key | Default | Accepted range | Purpose |

@@ -160,6 +160,7 @@ function Assert-RendererContract([string]$PackageName, [string]$Renderer) {
     Assert-True ($Renderer.Contains('"tautulli-default-poster-" + [Guid]::NewGuid().ToString("N") + ".png"')) "$PackageName lacks the portable generic-poster probe."
     Assert-True ($Renderer.Contains('Get-FileSha256 -Path $probePath')) "$PackageName lacks portable poster fingerprinting."
     Assert-True ($Renderer.Contains('DeletedItemCache.ps1')) "$PackageName does not load the persistent deleted-item cache."
+    Assert-True ($Renderer.Contains('. (Join-Path $ScriptRoot "Silo-Provider.ps1")')) "$PackageName does not load the Silo media-server provider."
     Assert-True ($Renderer.Contains('Restore-TautWeeklyDeletedItemCachePoster')) "$PackageName does not reuse exact cached artwork."
     Assert-True ($Renderer.Contains('Update-TautWeeklyDeletedItemCache')) "$PackageName does not capture live presentation assets."
     Assert-True ($Renderer.Contains('function Get-RecipientWatchedMovies')) "$PackageName lacks historical recipient movie watched-state collection."
@@ -248,6 +249,7 @@ $expected = [ordered]@{
         'TautWeekly-windows/Cache-Diagnostics.ps1',
         'TautWeekly-windows/Configuration-Backups.ps1',
         'TautWeekly-windows/Smtp-Transport.ps1',
+        'TautWeekly-windows/Silo-Provider.ps1',
         'TautWeekly-windows/config.example.json',
         'TautWeekly-windows/15-MANAGE-LIBRARIES.bat',
         'TautWeekly-windows/16-LIST-LIBRARIES.bat',
@@ -279,6 +281,7 @@ $expected = [ordered]@{
         'TautWeekly-nas-docker/app/Cache-Diagnostics.ps1',
         'TautWeekly-nas-docker/app/Configuration-Backups.ps1',
         'TautWeekly-nas-docker/app/Smtp-Transport.ps1',
+        'TautWeekly-nas-docker/app/Silo-Provider.ps1',
         'TautWeekly-nas-docker/app/Schedule-Time.ps1',
         'TautWeekly-nas-docker/app/Runtime-Logs.ps1',
         'TautWeekly-nas-docker/app/healthcheck.sh',
@@ -303,6 +306,7 @@ $expected = [ordered]@{
         'TautWeekly-mac-docker/app/Cache-Diagnostics.ps1',
         'TautWeekly-mac-docker/app/Configuration-Backups.ps1',
         'TautWeekly-mac-docker/app/Smtp-Transport.ps1',
+        'TautWeekly-mac-docker/app/Silo-Provider.ps1',
         'TautWeekly-mac-docker/app/Schedule-Time.ps1',
         'TautWeekly-mac-docker/app/Runtime-Logs.ps1',
         'TautWeekly-mac-docker/app/bin/run-as-user.sh',
@@ -329,6 +333,7 @@ $expected = [ordered]@{
         'TautWeekly-linux/app/Cache-Diagnostics.ps1',
         'TautWeekly-linux/app/Configuration-Backups.ps1',
         'TautWeekly-linux/app/Smtp-Transport.ps1',
+        'TautWeekly-linux/app/Silo-Provider.ps1',
         'TautWeekly-linux/app/Schedule-Time.ps1',
         'TautWeekly-linux/app/Runtime-Logs.ps1',
         'TautWeekly-linux/app/bin/run-as-user.sh',
@@ -357,6 +362,7 @@ $expected = [ordered]@{
         'TautWeekly-freebsd-podman/app/Cache-Diagnostics.ps1',
         'TautWeekly-freebsd-podman/app/Configuration-Backups.ps1',
         'TautWeekly-freebsd-podman/app/Smtp-Transport.ps1',
+        'TautWeekly-freebsd-podman/app/Silo-Provider.ps1',
         'TautWeekly-freebsd-podman/app/Schedule-Time.ps1',
         'TautWeekly-freebsd-podman/app/Runtime-Logs.ps1',
         'TautWeekly-freebsd-podman/app/bin/run-as-user.sh',

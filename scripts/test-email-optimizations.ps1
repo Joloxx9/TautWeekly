@@ -18,6 +18,9 @@ try {
             $tokens = $null; $errors = $null
             $ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $Root $relative), [ref]$tokens, [ref]$errors)
             Assert-True ($errors.Count -eq 0) "Parse failed: $relative"
+            # Extracted renderer functions consult the media-server provider
+            # the renderer dot-sources beside itself; it keeps Tautulli mode.
+            . (Join-Path (Split-Path -Parent (Join-Path $Root $relative)) 'Silo-Provider.ps1')
             Invoke-Expression (Load-Function $ast 'Get-PosterPath')
             Invoke-Expression (Load-Function $ast 'Get-DesignHeroAssets')
             Invoke-Expression (Load-Function $ast 'Write-TautWeeklyStructuredResult')

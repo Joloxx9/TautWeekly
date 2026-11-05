@@ -36,6 +36,14 @@ class ClassifierTests(unittest.TestCase):
             {"container_arm64"},
         )
 
+    def test_silo_provider_runtime_selects_renderer_package_and_image_gates(self):
+        for path in ["platforms/nas-docker/app/Silo-Provider.ps1", "platforms/mac-docker/app/Silo-Provider.ps1"]:
+            self.assert_gates([path], {"powershell", "renderer", "package", "container"}, {"container_arm64"})
+
+    def test_silo_provider_tests_select_renderer_validation(self):
+        self.assert_gates(["scripts/test-silo-provider.ps1"], {"powershell", "renderer"})
+        self.assert_gates(["scripts/test-support/fake-silo.py"], {"powershell", "renderer"}, {"package", "container"})
+
     def test_scheduler_does_not_select_full_renderer(self):
         self.assert_gates(
             ["platforms/nas-docker/app/Scheduler.ps1"],

@@ -30,6 +30,7 @@ $required = @(
     'platforms/windows/DeletedItemCache.ps1',
     'platforms/windows/Cache-Diagnostics.ps1',
     'platforms/windows/Smtp-Transport.ps1',
+    'platforms/windows/Silo-Provider.ps1',
     'platforms/windows/Check-Update.ps1',
     'platforms/windows/Windows-Update.ps1',
     'platforms/windows/Operation-Lock.ps1',
@@ -59,6 +60,7 @@ $required = @(
     'platforms/nas-docker/app/DeletedItemCache.ps1',
     'platforms/nas-docker/app/Cache-Diagnostics.ps1',
     'platforms/nas-docker/app/Smtp-Transport.ps1',
+    'platforms/nas-docker/app/Silo-Provider.ps1',
     'platforms/mac-docker/compose.yaml',
     'platforms/mac-docker/tautweekly.sh',
     'platforms/mac-docker/check-release.sh',
@@ -76,6 +78,7 @@ $required = @(
     'platforms/mac-docker/app/DeletedItemCache.ps1',
     'platforms/mac-docker/app/Cache-Diagnostics.ps1',
     'platforms/mac-docker/app/Smtp-Transport.ps1',
+    'platforms/mac-docker/app/Silo-Provider.ps1',
     'platforms/linux/install-linux.sh',
     'platforms/linux/tautweekly',
     'platforms/linux/check-release.sh',
@@ -242,7 +245,8 @@ else {
 $checks = [ordered]@{
     'private IPv4 address' = '(?<!\d)(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?!\d)'
     'Windows user path' = '(?i)[A-Z]:\\Users\\[^\\\s"<>]+'
-    'Unix user path' = '(?i)/(?:Users|home)/[^/\s"<>]+'
+    # Silo's native /api/v2/admin/users routes are API paths, not home folders.
+    'Unix user path' = '(?i)(?<!/admin)/(?:Users|home)/[^/\s"<>]+'
     'GitHub token' = '(?i)\bgh[pousr]_[A-Za-z0-9]{20,}\b'
     'private key block' = '-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'
 }

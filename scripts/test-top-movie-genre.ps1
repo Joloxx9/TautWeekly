@@ -48,6 +48,9 @@ foreach ($relativePath in $rendererPaths) {
     $parseErrors = $null
     $ast = [Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$parseErrors)
     Assert-True ($parseErrors.Count -eq 0) "Cannot test Top Movie Genre with parser errors: $relativePath"
+    # Extracted renderer functions consult the media-server provider that the
+    # renderer dot-sources beside itself; load it so they keep Tautulli mode.
+    . (Join-Path (Split-Path -Parent $path) 'Silo-Provider.ps1')
     foreach ($functionName in $requiredFunctions) {
         $definition = $ast.FindAll({
             param($node)

@@ -846,7 +846,10 @@ func validateConfigRelationships(values map[string]any, fieldErrors map[string]s
 	if customTextCardEnabled && strings.TrimSpace(fmt.Sprint(values["CustomTextCardBody"])) == "" {
 		fieldErrors["CustomTextCardBody"] = "Card body text is required when the custom text card is enabled."
 	}
-	if !secretConfigured(values, "ApiKey") {
+	// A Silo deployment reads its media server through the renderer's Silo
+	// provider (MediaServer, SiloUrl, SiloApiKey in config.json); it has no
+	// Tautulli key. The renderer validates the Silo fields itself.
+	if !configUsesSiloMediaServer(values) && !secretConfigured(values, "ApiKey") {
 		fieldErrors["ApiKey"] = "A Tautulli API key is required."
 	}
 	authentication, _ := values["SmtpUseAuthentication"].(bool)
@@ -867,6 +870,10 @@ func validateConfigRelationships(values map[string]any, fieldErrors map[string]s
 			fieldErrors[name] = "Replace the example email address before saving."
 		}
 	}
+}
+
+func configUsesSiloMediaServer(values map[string]any) bool {
+	return strings.EqualFold(configMapString(values, "MediaServer"), "silo")
 }
 
 func existingConfigIssues(values map[string]any) map[string]string {

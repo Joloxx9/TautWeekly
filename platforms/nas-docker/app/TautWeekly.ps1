@@ -795,8 +795,12 @@ function Require-ConfigValue {
     }
 }
 
-Require-ConfigValue "TautulliUrl"
-Require-ConfigValue "ApiKey"
+. (Join-Path $ScriptRoot "Silo-Provider.ps1")
+Initialize-TautWeeklySiloProvider -Configuration $Config
+if (-not (Test-TautWeeklySiloServer)) {
+    Require-ConfigValue "TautulliUrl"
+    Require-ConfigValue "ApiKey"
+}
 
 $TautulliBase = ([string]$Config.TautulliUrl).TrimEnd('/')
 
@@ -809,6 +813,7 @@ function Get-ConfiguredServerName {
         -not [string]::IsNullOrWhiteSpace([string]$Config.ServerLabel)) {
         return [string]$Config.ServerLabel
     }
+    if (Test-TautWeeklySiloServer) { return "My Silo" }
     return "My Plex"
 }
 
@@ -823,6 +828,7 @@ function Get-ConfiguredPlexWebUrl {
             return $value
         }
     }
+    if (Test-TautWeeklySiloServer) { return $script:SiloBase + "/" }
     return "https://app.plex.tv/desktop/"
 }
 
@@ -834,6 +840,7 @@ function Get-ConfiguredPlexButtonLabel {
     }
     $label = [regex]::Replace($label, '[\x00-\x1F\x7F]', '').Trim()
     if ([string]::IsNullOrWhiteSpace($label)) {
+        if (Test-TautWeeklySiloServer) { return "Open Silo" }
         return "Open Plex"
     }
     $textElements = [Globalization.StringInfo]::ParseCombiningCharacters($label)
@@ -1046,6 +1053,10 @@ function Invoke-TautulliApi {
         [string]$Command,
         [hashtable]$Parameters = @{}
     )
+
+    if (Test-TautWeeklySiloServer) {
+        return Invoke-SiloTautulliCommand -Command $Command -Parameters $Parameters
+    }
 
     $uri = Build-TautulliUri -Command $Command -Parameters $Parameters
     try {
@@ -2875,7 +2886,7 @@ function Get-NewsletterPlatformHeadingHtml {
         [string]$PreviewAssetBase = ""
     )
 
-    $heading = '<div style="font-size:12px;color:#e5a00d;font-weight:800;letter-spacing:1.4px;">YOUR WEEK ON PLEX</div>'
+    $heading = '<div style="font-size:12px;color:#e5a00d;font-weight:800;letter-spacing:1.4px;">YOUR WEEK ON ' + (Get-TautWeeklyMediaServerName).ToUpperInvariant() + '</div>'
     if ($null -eq $Platform) { return $heading }
 
     $fileName = Get-OptionalStringProperty -InputObject $Platform -Name "FileName"
@@ -3686,6 +3697,12 @@ function Get-DesignPlexContext {
         return $script:DesignPlexContext
     }
 
+    if (Test-TautWeeklySiloServer) {
+        # Silo has no Plex server; never probe for a Plex URL or token.
+        $script:DesignPlexContext = [PSCustomObject]@{ Available = $false; ServerUrl = ""; Token = "" }
+        return $script:DesignPlexContext
+    }
+
     $serverUrl = ""
     $token = ""
 
@@ -3905,6 +3922,7 @@ function Get-DesignPlexMetadata {
     param([string]$RatingKey)
 
     if ([string]::IsNullOrWhiteSpace($RatingKey)) { return $null }
+    if (Test-TautWeeklySiloServer) { return $null }
 
     if ($script:DesignPlexMetadataCache.ContainsKey($RatingKey)) {
         return $script:DesignPlexMetadataCache[$RatingKey]
@@ -4010,6 +4028,9 @@ function Get-DesignEpisodeImdbRating {
     )
 
     if ([string]::IsNullOrWhiteSpace($RatingKey)) { return "" }
+    if (Test-TautWeeklySiloServer) {
+        return Get-SiloEpisodeImdbRating -TautulliMetadata $TautulliMetadata
+    }
 
     $jsonRatings = @()
     $xmlRatings = @()
@@ -5535,6 +5556,11 @@ function Get-DesignGenreLine {
 function Add-DesignRatingMetadata {
     param([object]$ReleaseData)
 
+    if (Test-TautWeeklySiloServer) {
+        Add-SiloDesignRatingMetadata -ReleaseData $ReleaseData
+        return
+    }
+
     $all = @()
     $all += @($ReleaseData.Movies)
     $all += @($ReleaseData.TV)
@@ -6380,6 +6406,10 @@ function Get-DesignLogoFromExporter {
 function Get-DesignHeroAssets {
     param([object]$HotRelease)
 
+    if (Test-TautWeeklySiloServer) {
+        return Get-SiloDesignHeroAssets -HotRelease $HotRelease
+    }
+
     $result = [PSCustomObject]@{
         BannerSrc    = ""
         ArtSrc       = ""
@@ -6947,6 +6977,7 @@ function Get-PlexHostedPosterPath {
         [int]$Index = 0
     )
 
+    if (Test-TautWeeklySiloServer) { return "" }
     if ([string]::IsNullOrWhiteSpace($MetadataGuid) -or
         [string]::IsNullOrWhiteSpace($DestinationPath)) {
         return ""
@@ -7107,6 +7138,27 @@ function Get-PosterPath {
     # Never promote a prior generated-output file into persistent state. A
     # cache capture must be backed by a fresh local Plex/Tautulli response.
     Remove-Item $path -Force -ErrorAction SilentlyContinue
+
+    if (Test-TautWeeklySiloServer) {
+        # Silo artwork: fetch the item's signed poster and re-encode it for
+        # email. A catalog miss falls back only to the exact pre-deletion
+        # cache; Plex-hosted recovery never applies to Silo identities.
+        if (Save-SiloPoster -ContentId $RatingKey -DestinationPath $path) {
+            if ($null -ne $LivePlexPoster) { $LivePlexPoster.Value = $true }
+            $script:TautWeeklyRunPosterCache[$cacheKey] = [PSCustomObject]@{ Path = $path; LivePlexPoster = $true }
+            return $path
+        }
+        Remove-Item $path -Force -ErrorAction SilentlyContinue
+        $cachedPath = Restore-TautWeeklyDeletedItemCachePoster `
+            -MediaType $MediaType `
+            -MetadataGuid $MetadataGuid `
+            -DestinationPath $path
+        if (-not [string]::IsNullOrWhiteSpace($cachedPath)) {
+            $script:TautWeeklyRunPosterCache[$cacheKey] = [PSCustomObject]@{ Path = $cachedPath; LivePlexPoster = $false }
+            return $cachedPath
+        }
+        return ""
+    }
 
     $uri = Build-TautulliUri -Command "pms_image_proxy" -Parameters @{
         rating_key = $RatingKey
@@ -7953,13 +8005,13 @@ $genreHtml
                         if ($item.SeasonCount -eq 1) { "1 new season" } else { "$($item.SeasonCount) new seasons" }
                     }
                     elseif ($item.IsNewSeries) {
-                        "New on Plex"
+                        "New on $(Get-TautWeeklyMediaServerName)"
                     }
                     elseif ($item.EpisodeCount -gt 0) {
                         if ($item.EpisodeCount -eq 1) { "1 new episode" } else { "$($item.EpisodeCount) new episodes" }
                     }
                     else {
-                        "New on Plex"
+                        "New on $(Get-TautWeeklyMediaServerName)"
                     }
 
                     $tvDetails = @"
@@ -8141,10 +8193,10 @@ function Build-NewsletterHtml {
         "Welcome to $(HtmlEncode $footerServerName) — you're all set. Here's what's new and what to expect from your $deliveryDay drops."
     }
     elseif ($QuietReleaseMode) {
-        "Your $deliveryDay Plex drop is here — this week’s server favorites, latest library additions, and your private weekly recap."
+        "Your $deliveryDay $(Get-TautWeeklyMediaServerName) drop is here — this week’s server favorites, latest library additions, and your private weekly recap."
     }
     else {
-        "Your $deliveryDay Plex drop is here — fresh releases plus your private weekly recap."
+        "Your $deliveryDay $(Get-TautWeeklyMediaServerName) drop is here — fresh releases plus your private weekly recap."
     }
 
     $preheader = if ($QuietReleaseMode) {
@@ -8267,7 +8319,7 @@ $tvCards
     $serverLabel = if ($null -ne $Config.PSObject.Properties["ServerLabel"] -and -not [string]::IsNullOrWhiteSpace([string]$Config.ServerLabel)) {
         [string]$Config.ServerLabel
     } else {
-        "PLEX"
+        (Get-TautWeeklyMediaServerName).ToUpperInvariant()
     }
 
     $moviesIconSrc = if ($ImageMode -eq "Email") { "cid:icon_movies" } else { "assets/movies.gif" }
@@ -8909,7 +8961,7 @@ $mediaStatsRows
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
-<title>TautWeekly for Plex</title>
+<title>TautWeekly for $(Get-TautWeeklyMediaServerName)</title>
 <style>
 /* Email-safe table-first layout; only the featured hero swaps at the mobile breakpoint. */
 :root { color-scheme:light dark; supported-color-schemes:light dark; }
@@ -9129,7 +9181,7 @@ function Build-PlainText {
         }
         elseif ($SystemWarmingUp) {
             $statsText = @"
-YOUR WEEK ON PLEX
+YOUR WEEK ON $((Get-TautWeeklyMediaServerName).ToUpperInvariant())
 
 STATS ARE WARMING UP
 The sensors are online.
@@ -9139,7 +9191,7 @@ Check back next $deliveryDay for the full readout.
         }
         else {
             $statsText = @"
-YOUR WEEK ON PLEX
+YOUR WEEK ON $((Get-TautWeeklyMediaServerName).ToUpperInvariant())
 
 QUIET IN THIS SECTOR
 No watch activity this week.
@@ -9149,7 +9201,7 @@ Warp Core still engaging. Your recap will be ready when you beam back aboard.
     }
     else {
         $statsText = @"
-YOUR WEEK ON PLEX
+YOUR WEEK ON $((Get-TautWeeklyMediaServerName).ToUpperInvariant())
 
 $movieStatsText
 $tvStatsText
@@ -9199,7 +9251,7 @@ ${plexButtonLabel}: $plexWebUrl
     return @"
 ${plainPreheaderBlock}Hey $($User.FriendlyName),
 
-Your $deliveryDay Plex drop is here.
+Your $deliveryDay $(Get-TautWeeklyMediaServerName) drop is here.
 $customTextCardBlock
 $releaseMetaText
 $heroLine
@@ -9688,13 +9740,14 @@ function Get-NewsletterSubject {
         return "$($User.FriendlyName), welcome aboard 🖖 | $serverName is ready 🍿"
     }
 
-    return "$($User.FriendlyName), your $deliveryDay Plex drop is here 🍿"
+    return "$($User.FriendlyName), your $deliveryDay $(Get-TautWeeklyMediaServerName) drop is here 🍿"
 }
 
 # ---------------------------------------------------------------------------
 # MODE: VERIFY DIRECT PLEX
 # ---------------------------------------------------------------------------
 if ($Mode -eq "VerifyPlex") {
+    if (Test-TautWeeklySiloServer) { exit (Test-TautWeeklySiloConnection) }
     exit (Test-TautWeeklyDirectPlexConnection)
 }
 

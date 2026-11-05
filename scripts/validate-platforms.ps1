@@ -408,6 +408,29 @@ foreach ($relative in @(
     }
 }
 Write-Host '[PASS] Deleted-item cache schema and implementation remain identical across renderers.'
+$siloModuleReference = (Read-RepoFile 'platforms/windows/Silo-Provider.ps1') -replace "`r`n", "`n"
+foreach ($relative in @(
+    'platforms/nas-docker/app/Silo-Provider.ps1',
+    'platforms/mac-docker/app/Silo-Provider.ps1'
+)) {
+    $candidate = (Read-RepoFile $relative) -replace "`r`n", "`n"
+    if ($candidate.TrimEnd() -cne $siloModuleReference.TrimEnd()) {
+        throw "Silo provider implementation drifted across renderers: $relative"
+    }
+}
+foreach ($relative in @(
+    'platforms/windows/TautWeekly.ps1',
+    'platforms/nas-docker/app/TautWeekly.ps1',
+    'platforms/mac-docker/app/TautWeekly.ps1'
+)) {
+    Require-Text $relative @(
+        'Silo-Provider\.ps1',
+        'Initialize-TautWeeklySiloProvider -Configuration \$Config',
+        'Invoke-SiloTautulliCommand -Command \$Command',
+        'Get-SiloDesignHeroAssets -HotRelease \$HotRelease'
+    )
+}
+Write-Host '[PASS] Silo provider implementation and renderer hooks remain identical across renderers.'
 $cacheDiagnosticReference = (Read-RepoFile 'platforms/windows/Cache-Diagnostics.ps1') -replace "`r`n", "`n"
 foreach ($relative in @(
     'platforms/nas-docker/app/Cache-Diagnostics.ps1',
